@@ -33,6 +33,10 @@ button {
   padding: 20px;
 }
 
+.layout-mobile {
+  padding: 12px 12px calc(98px + env(safe-area-inset-bottom));
+}
+
 .mythic-backdrop {
   position: absolute;
   inset: 0;
@@ -464,6 +468,7 @@ button {
 .loading-panel,
 .celebration-card,
 .simple-topbar,
+.mobile-topbar,
 .balance-chip {
   position: relative;
   z-index: 1;
@@ -480,6 +485,13 @@ button {
   gap: 16px;
   border-radius: 22px;
   padding: 12px 18px;
+}
+
+.mobile-topbar {
+  display: grid;
+  gap: 10px;
+  border-radius: 22px;
+  padding: 14px 16px;
 }
 
 .brand-block h1 {
@@ -522,9 +534,26 @@ button {
   margin-top: 12px;
 }
 
+.simple-stage-mobile {
+  margin-top: 10px;
+}
+
 .simple-cabinet {
   width: min(980px, 100%);
   padding: 16px;
+}
+
+.mobile-summary-strip {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.mobile-balance-chip,
+.mobile-win-banner {
+  width: 100%;
 }
 
 .loading-panel {
@@ -534,6 +563,16 @@ button {
   padding: 28px;
   text-align: center;
   font-size: 1.05rem;
+}
+
+.loading-panel strong {
+  display: block;
+  font-size: 1.2rem;
+}
+
+.loading-copy {
+  margin: 10px 0 0;
+  color: #d1ddf3;
 }
 
 .hero-panel {
@@ -986,6 +1025,38 @@ button {
   flex-wrap: wrap;
   justify-content: center;
   margin-top: 10px;
+}
+
+.mobile-action-bar {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 11;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(8, 16, 33, 0.9);
+  box-shadow: 0 18px 70px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(18px);
+}
+
+.mobile-action-bar .spin-button,
+.mobile-action-bar .mode-button {
+  min-width: 0;
+  width: 100%;
+}
+
+.mobile-action-bar .spin-button {
+  padding: 14px 18px;
+}
+
+.mobile-action-bar .mode-button {
+  padding-inline: 18px;
+  white-space: nowrap;
 }
 
 .spin-button,
@@ -1604,7 +1675,7 @@ button {
   .backdrop-loony-2,
   .backdrop-network-1,
   .backdrop-network-2 {
-    max-height: 14vh;
+    max-height: 12vh;
   }
 
   .simple-topbar,
@@ -1623,24 +1694,30 @@ button {
   .panel,
   .bonus-modal,
   .info-section {
-    padding: 18px;
+    padding: 16px;
   }
 
   .reel-frame {
-    gap: 8px;
-    padding: 10px;
+    gap: 6px;
+    margin: 8px 0;
+    padding: 6px;
+    border-radius: 18px;
+  }
+
+  .reel-column {
+    gap: 6px;
   }
 
   .symbol-tile {
-    min-height: 94px;
-    border-radius: 18px;
-    padding: 14px 8px;
+    min-height: 0;
+    border-radius: 16px;
+    padding: 10px 6px;
   }
 
   .symbol-tile-art {
     aspect-ratio: 1 / 1;
     padding: 0;
-    border-radius: 16px;
+    border-radius: 14px;
   }
 
   .symbol-art.puzzle-piece {
@@ -1670,5 +1747,95 @@ button {
   .win-banner {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .layout-mobile .coin-burst {
+    display: none;
+  }
+
+  .layout-mobile .page-noise {
+    opacity: 0.65;
+  }
+
+  .layout-mobile .brand-block h1 {
+    font-size: clamp(1.6rem, 7vw, 2.1rem);
+  }
+
+  .layout-mobile .eyebrow {
+    margin-bottom: 4px;
+  }
+
+  .layout-mobile .simple-cabinet {
+    width: 100%;
+    padding: 10px;
+  }
+
+  .layout-mobile .cabinet-stage {
+    margin-top: 0;
+    padding: 8px;
+    border-radius: 22px;
+  }
+
+  .layout-mobile .cabinet-stage::before,
+  .layout-mobile .cabinet-stage::after {
+    top: 15%;
+    bottom: 13%;
+    width: 12px;
+  }
+
+  .layout-mobile .minimal-status {
+    margin-top: 8px;
+    font-size: 0.94rem;
+  }
+
+  .layout-mobile .minimal-status p + p {
+    margin-top: 6px;
+  }
+
+  .layout-mobile .balance-chip {
+    min-width: 0;
+    border-radius: 16px;
+    padding: 9px 12px;
+  }
+
+  .layout-mobile .balance-chip strong,
+  .layout-mobile .mobile-win-banner strong {
+    font-size: 1.02rem;
+  }
+
+  .layout-mobile .mobile-win-banner {
+    padding: 10px 12px;
+    border-radius: 16px;
+  }
+
+  .layout-mobile .bonus-overlay {
+    padding: 12px;
+  }
+
+  .layout-mobile .bonus-modal,
+  .layout-mobile .info-modal {
+    width: 100%;
+    max-height: calc(100vh - 24px);
+    border-radius: 24px;
+    padding: 18px;
+  }
+
+  .layout-mobile .bonus-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .layout-mobile .bonus-card {
+    min-height: 88px;
+  }
+
+  .layout-mobile .family-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .layout-mobile .celebration-card {
+    min-width: min(92vw, 420px);
+    padding: 16px 18px;
+    font-size: clamp(1.4rem, 8vw, 2.2rem);
+    letter-spacing: 0.08em;
   }
 }

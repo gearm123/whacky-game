@@ -58,6 +58,10 @@ const NETWORK_BACKGROUND_CLASSES = [
 ];
 
 const FAMILY_ORDER = ["GREEK", "SLAPSTICK", "MYSTERY"];
+const MOBILE_MEDIA_QUERY = "(max-width: 760px)";
+const ALL_IMAGE_ASSETS = Array.from(
+  new Set([...GREEK_IMAGE_ASSETS, ...LOONY_IMAGE_ASSETS, ...NETWORK_IMAGE_ASSETS]),
+);
 
 function randomItem(items) {
   return items[Math.floor(Math.random() * items.length)];
@@ -106,6 +110,53 @@ function pickSeededAsset(items, seedValue) {
   }
 
   return items[hashString(seedValue) % items.length];
+}
+
+function preloadImage(src) {
+  return new Promise((resolve) => {
+    const image = new Image();
+    let finished = false;
+
+    const complete = () => {
+      if (finished) {
+        return;
+      }
+
+      finished = true;
+      resolve();
+    };
+
+    image.onload = () => {
+      if (typeof image.decode === "function") {
+        image.decode().catch(() => undefined).finally(complete);
+        return;
+      }
+
+      complete();
+    };
+
+    image.onerror = complete;
+    image.src = src;
+
+    if (image.complete) {
+      complete();
+    }
+  });
+}
+
+async function preloadAssets(sources, onProgress) {
+  let loadedCount = 0;
+
+  onProgress({ loaded: 0, total: sources.length });
+
+  await Promise.all(
+    sources.map((src) =>
+      preloadImage(src).finally(() => {
+        loadedCount += 1;
+        onProgress({ loaded: loadedCount, total: sources.length });
+      }),
+    ),
+  );
 }
 
 function getSymbolAssetPool(symbol) {
@@ -179,6 +230,13 @@ export default function App() {
   const [error, setError] = useState("");
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [winningTileKeys, setWinningTileKeys] = useState([]);
+  const [assetLoadState, setAssetLoadState] = useState({
+    loaded: 0,
+    total: ALL_IMAGE_ASSETS.length,
+  });
+  const [isMobileLayout, setIsMobileLayout] = useState(() =>
+    window.matchMedia(MOBILE_MEDIA_QUERY).matches,
+  );
 
   const symbols = config?.symbols ?? [];
   const themePayouts = config?.themePayouts ?? {};
@@ -193,6 +251,13 @@ export default function App() {
   const hasWin = lastWin > 0;
   const specialState = uiState?.specialState ?? null;
   const overlayTheme = uiState?.overlayTheme ?? "greek";
+  const winBannerLabel = uiState?.winBannerLabel ?? (hasWin ? "WIN" : "READY");
+  const winBannerValue = hasWin ? `${formatCoins(lastWin)} coins` : `${formatCoins(spinCost)} coins`;
+  const actionLabel = isSpinning
+    ? "Resolving..."
+    : isFeatureRunning
+      ? "Running Feature..."
+      : "Play";
 
   const boardImages = useMemo(() => {
     const boardSeed = JSON.stringify(board);
@@ -260,13 +325,34 @@ export default function App() {
     [symbols],
   );
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(MOBILE_MEDIA_QUERY);
+    const handleChange = (event) => {
+      setIsMobileLayout(event.matches);
+    };
+
+    setIsMobileLayout(mediaQuery.matches);
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
+  }, []);
+
   async function loadGame() {
     setIsLoading(true);
     setError("");
+    setAssetLoadState({ loaded: 0, total: ALL_IMAGE_ASSETS.length });
 
     try {
-      const walletPayload = await fetchWallet();
+      const walletPromise = fetchWallet();
+      const assetPromise = preloadAssets(ALL_IMAGE_ASSETS, setAssetLoadState);
       const configPayload = getGameConfig();
+      const walletPayload = await walletPromise;
+      await assetPromise;
       const sessionPayload = createGameSession(walletPayload.balance);
 
       setConfig(configPayload);
@@ -384,7 +470,12 @@ export default function App() {
     return (
       <div className="app-shell">
         <div className="page-noise" />
-        <div className="loading-panel">Loading local game session...</div>
+        <div className="loading-panel">
+          <strong>Preparing Whacky Game</strong>
+          <p className="loading-copy">
+            Loading artwork {assetLoadState.loaded}/{assetLoadState.total} before the game appears.
+          </p>
+        </div>
       </div>
     );
   }
@@ -401,7 +492,11 @@ export default function App() {
   }
 
   return (
-    <div className={`app-shell flash-${flashTier} overlay-${overlayTheme}`}>
+    <div
+      className={`app-shell flash-${flashTier} overlay-${overlayTheme} ${
+        isMobileLayout ? "layout-mobile" : "layout-desktop"
+      }`}
+    >
       <div className="mythic-backdrop" aria-hidden="true">
         <div className="sun-disk" />
         <div className="mount-olympus" />
@@ -427,28 +522,37 @@ export default function App() {
         <div className="cash-ribbon cash-ribbon-right" />
         <div className="greek-arch greek-arch-left" />
         <div className="greek-arch greek-arch-right" />
-        {backgroundGreekImages.slice(0, GREEK_BACKGROUND_CLASSES.length).map((src, index) => (
+        {backgroundGreekImages
+          .slice(0, isMobileLayout ? 1 : GREEK_BACKGROUND_CLASSES.length)
+          .map((src, index) => (
           <AssetImage
             key={`${src}-${index}`}
             src={src}
             alt=""
             className={GREEK_BACKGROUND_CLASSES[index]}
+            fetchPriority="low"
           />
         ))}
-        {backgroundLoonyImages.slice(0, LOONY_BACKGROUND_CLASSES.length).map((src, index) => (
+        {backgroundLoonyImages
+          .slice(0, isMobileLayout ? 1 : LOONY_BACKGROUND_CLASSES.length)
+          .map((src, index) => (
           <AssetImage
             key={`${src}-${index}`}
             src={src}
             alt=""
             className={LOONY_BACKGROUND_CLASSES[index]}
+            fetchPriority="low"
           />
         ))}
-        {backgroundNetworkImages.slice(0, NETWORK_BACKGROUND_CLASSES.length).map((src, index) => (
+        {backgroundNetworkImages
+          .slice(0, isMobileLayout ? 1 : NETWORK_BACKGROUND_CLASSES.length)
+          .map((src, index) => (
           <AssetImage
             key={`${src}-${index}`}
             src={src}
             alt=""
             className={NETWORK_BACKGROUND_CLASSES[index]}
+            fetchPriority="low"
           />
         ))}
       </div>
@@ -459,21 +563,36 @@ export default function App() {
         ))}
       </div>
 
-      <header className="simple-topbar">
+      <header className={isMobileLayout ? "mobile-topbar" : "simple-topbar"}>
         <div className="brand-block">
           <p className="eyebrow">Greek Puzzle Slot</p>
           <h1>{config.title}</h1>
         </div>
 
-        <div className="topbar-actions">
-          <div className="balance-chip">
+        {!isMobileLayout ? (
+          <div className="topbar-actions">
+            <div className="balance-chip">
+              <span>Balance</span>
+              <strong>{formatCoins(gameState.balance)} coins</strong>
+            </div>
+          </div>
+        ) : null}
+      </header>
+
+      {isMobileLayout ? (
+        <section className="mobile-summary-strip">
+          <div className="balance-chip mobile-balance-chip">
             <span>Balance</span>
             <strong>{formatCoins(gameState.balance)} coins</strong>
           </div>
-        </div>
-      </header>
+          <div className={`win-banner mobile-win-banner banner-${flashTier}`}>
+            <span className="win-banner-label">{winBannerLabel}</span>
+            <strong>{winBannerValue}</strong>
+          </div>
+        </section>
+      ) : null}
 
-      <main className="simple-stage">
+      <main className={`simple-stage ${isMobileLayout ? "simple-stage-mobile" : ""}`}>
         <section className="cabinet simple-cabinet">
           <div className={`cabinet-stage stage-${overlayTheme}`}>
             <div className={`reel-frame ${isSpinning ? "reel-frame-spinning" : ""}`}>
@@ -497,6 +616,7 @@ export default function App() {
                             src={tileImage}
                             alt={symbol?.label ?? symbolId}
                             className={`symbol-art ${isArtworkTile ? "puzzle-piece" : ""}`}
+                            fetchPriority="high"
                           />
                         ) : null}
                         <span className="symbol-label">{symbol?.label ?? symbolId}</span>
@@ -508,12 +628,12 @@ export default function App() {
               ))}
             </div>
 
-            <div className={`win-banner banner-${flashTier}`}>
-              <span className="win-banner-label">
-                {uiState?.winBannerLabel ?? (hasWin ? "WIN" : "READY")}
-              </span>
-              <strong>{hasWin ? `${formatCoins(lastWin)} coins` : `${formatCoins(spinCost)} coins`}</strong>
-            </div>
+            {!isMobileLayout ? (
+              <div className={`win-banner banner-${flashTier}`}>
+                <span className="win-banner-label">{winBannerLabel}</span>
+                <strong>{winBannerValue}</strong>
+              </div>
+            ) : null}
           </div>
 
           <div className="minimal-status">
@@ -521,29 +641,47 @@ export default function App() {
             {error ? <p className="error-text">{error}</p> : null}
           </div>
 
-          <div className="controls simple-controls">
-            <button
-              type="button"
-              className="spin-button"
-              onClick={handleSpin}
-              disabled={isSpinning || isFeatureRunning || specialState?.active}
-            >
-              {isSpinning
-                ? "Resolving..."
-                : isFeatureRunning
-                  ? "Running Feature..."
-                  : "Play"}
-            </button>
-            <button
-              type="button"
-              className="mode-button compact secondary-button"
-              onClick={() => setIsInfoOpen(true)}
-            >
-              Info
-            </button>
-          </div>
+          {!isMobileLayout ? (
+            <div className="controls simple-controls">
+              <button
+                type="button"
+                className="spin-button"
+                onClick={handleSpin}
+                disabled={isSpinning || isFeatureRunning || specialState?.active}
+              >
+                {actionLabel}
+              </button>
+              <button
+                type="button"
+                className="mode-button compact secondary-button"
+                onClick={() => setIsInfoOpen(true)}
+              >
+                Info
+              </button>
+            </div>
+          ) : null}
         </section>
       </main>
+
+      {isMobileLayout ? (
+        <div className="mobile-action-bar">
+          <button
+            type="button"
+            className="spin-button"
+            onClick={handleSpin}
+            disabled={isSpinning || isFeatureRunning || specialState?.active}
+          >
+            {actionLabel}
+          </button>
+          <button
+            type="button"
+            className="mode-button compact secondary-button"
+            onClick={() => setIsInfoOpen(true)}
+          >
+            Info
+          </button>
+        </div>
+      ) : null}
 
       {isInfoOpen ? (
         <div className="bonus-overlay info-overlay" onClick={() => setIsInfoOpen(false)}>
@@ -697,12 +835,22 @@ export default function App() {
   );
 }
 
-function AssetImage({ src, alt, className }) {
+function AssetImage({ src, alt, className, fetchPriority = "auto" }) {
   const [failed, setFailed] = useState(false);
 
   if (!src || failed) {
     return null;
   }
 
-  return <img src={src} alt={alt} className={className} onError={() => setFailed(true)} />;
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      loading={fetchPriority === "high" ? "eager" : "lazy"}
+      decoding="async"
+      fetchPriority={fetchPriority}
+      onError={() => setFailed(true)}
+    />
+  );
 }
