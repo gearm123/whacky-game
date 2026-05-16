@@ -64,6 +64,22 @@ const SYMBOLS = [
     accent: "symbol-amber",
   },
   {
+    id: "STORYBOOK_WISH",
+    label: "Storybook Wish",
+    tag: "Disney",
+    type: "regular",
+    themeGroup: "DISNEY",
+    accent: "symbol-rose",
+  },
+  {
+    id: "PIXIE_COMPASS",
+    label: "Pixie Compass",
+    tag: "Disney",
+    type: "regular",
+    themeGroup: "DISNEY",
+    accent: "symbol-indigo",
+  },
+  {
     id: "WILD",
     label: "Mash-Up Mask",
     tag: "Wild",
@@ -90,6 +106,7 @@ const THEME_PAYOUTS = {
   GREEK: { label: "Greek", payouts: { 3: 26, 4: 88, 5: 250 } },
   MYSTERY: { label: "Network", payouts: { 3: 30, 4: 96, 5: 275 } },
   SLAPSTICK: { label: "Loony", payouts: { 3: 24, 4: 82, 5: 230 } },
+  DISNEY: { label: "Disney", payouts: { 3: 28, 4: 92, 5: 265 } },
 };
 
 const WILD_PAYOUTS = { 3: 60, 4: 210, 5: 700 };
@@ -229,7 +246,7 @@ function createEvent(type, summary, payload = {}) {
 }
 
 function pickRandomThemeGroup() {
-  return randomItem(["GREEK", "MYSTERY", "SLAPSTICK"]);
+  return randomItem(["GREEK", "MYSTERY", "SLAPSTICK", "DISNEY"]);
 }
 
 function getThemeFamilyForSymbols(symbolIds, symbolMap) {
@@ -322,6 +339,7 @@ function evaluateBoard(board, multiplier) {
     GREEK: [],
     MYSTERY: [],
     SLAPSTICK: [],
+    DISNEY: [],
   };
 
   board.forEach((column, columnIndex) => {
@@ -688,10 +706,11 @@ export function runGameSpin(currentState) {
   state.totalSpins += 1;
 
   const outcomeType = weightedPick([
-    { type: "lose", weight: 63 },
-    { type: "greekWin", weight: 13 },
-    { type: "mysteryWin", weight: 11 },
+    { type: "lose", weight: 61 },
+    { type: "greekWin", weight: 10 },
+    { type: "mysteryWin", weight: 9 },
     { type: "slapstickWin", weight: 8 },
+    { type: "disneyWin", weight: 7 },
     { type: "freeSpins", weight: 4 },
     { type: "bonusRound", weight: 0.8 },
     { type: "megaBonusRound", weight: 0.2 },
@@ -710,6 +729,8 @@ export function runGameSpin(currentState) {
     boardPayload = createThemeWinBoard("GREEK", randomItem([3, 3, 4]), 1);
   } else if (outcomeType === "mysteryWin") {
     boardPayload = createThemeWinBoard("MYSTERY", randomItem([3, 4, 4]), 1);
+  } else if (outcomeType === "disneyWin") {
+    boardPayload = createThemeWinBoard("DISNEY", randomItem([3, 3, 4]), 1);
   } else {
     boardPayload = createThemeWinBoard("SLAPSTICK", randomItem([3, 3, 4]), 1);
   }
@@ -796,10 +817,11 @@ export function runGameFeature(currentState, currentBoard, stakeChoice = null) {
 
   if (activeFeature.type === "free_spins") {
     const boardPayload = weightedPick([
-      { type: "lose", weight: 56 },
-      { type: "greekWin", weight: 16 },
-      { type: "mysteryWin", weight: 14 },
-      { type: "slapstickWin", weight: 12 },
+      { type: "lose", weight: 54 },
+      { type: "greekWin", weight: 12 },
+      { type: "mysteryWin", weight: 11 },
+      { type: "slapstickWin", weight: 10 },
+      { type: "disneyWin", weight: 11 },
       { type: "retrigger", weight: 2 },
     ]);
 
@@ -812,6 +834,8 @@ export function runGameFeature(currentState, currentBoard, stakeChoice = null) {
       resultPayload = createThemeWinBoard("GREEK", randomItem([3, 4, 4]), CONFIG.features.freeSpinMultiplier);
     } else if (boardPayload === "mysteryWin") {
       resultPayload = createThemeWinBoard("MYSTERY", randomItem([3, 4, 4]), CONFIG.features.freeSpinMultiplier);
+    } else if (boardPayload === "disneyWin") {
+      resultPayload = createThemeWinBoard("DISNEY", randomItem([3, 4, 4]), CONFIG.features.freeSpinMultiplier);
     } else {
       resultPayload = createThemeWinBoard("SLAPSTICK", randomItem([3, 4, 4]), CONFIG.features.freeSpinMultiplier);
     }
@@ -868,10 +892,11 @@ export function runGameFeature(currentState, currentBoard, stakeChoice = null) {
   }
 
   const roundType = weightedPick([
-    { type: "lose", weight: 50 },
-    { type: "greekWin", weight: 18 },
-    { type: "mysteryWin", weight: 17 },
-    { type: "slapstickWin", weight: 15 },
+    { type: "lose", weight: 46 },
+    { type: "greekWin", weight: 14 },
+    { type: "mysteryWin", weight: 14 },
+    { type: "slapstickWin", weight: 13 },
+    { type: "disneyWin", weight: 13 },
   ]);
 
   let resultPayload;
@@ -882,6 +907,8 @@ export function runGameFeature(currentState, currentBoard, stakeChoice = null) {
     resultPayload = createThemeWinBoard("GREEK", randomItem([3, 4, 4]), combinedMultiplier);
   } else if (roundType === "mysteryWin") {
     resultPayload = createThemeWinBoard("MYSTERY", randomItem([3, 4, 4]), combinedMultiplier);
+  } else if (roundType === "disneyWin") {
+    resultPayload = createThemeWinBoard("DISNEY", randomItem([3, 4, 4]), combinedMultiplier);
   } else {
     resultPayload = createThemeWinBoard("SLAPSTICK", randomItem([3, 4, 4]), combinedMultiplier);
   }

@@ -41,6 +41,19 @@ const NETWORK_IMAGE_ASSETS = [
   "/assets/network/scooby.png",
 ];
 
+const DISNEY_IMAGE_ASSETS = [
+  "/assets/disney/ariel.png",
+  "/assets/disney/donkey.png",
+  "/assets/disney/fairy.png",
+  "/assets/disney/hades.png",
+  "/assets/disney/hook.png",
+  "/assets/disney/nemo.png",
+  "/assets/disney/pan.png",
+  "/assets/disney/rumple.png",
+  "/assets/disney/shrek.png",
+  "/assets/disney/snow.png",
+];
+
 const GREEK_BACKGROUND_CLASSES = [
   "backdrop-figure backdrop-greek backdrop-greek-1",
   "backdrop-figure backdrop-greek backdrop-greek-2",
@@ -57,10 +70,15 @@ const NETWORK_BACKGROUND_CLASSES = [
   "backdrop-figure backdrop-network backdrop-network-2",
 ];
 
-const FAMILY_ORDER = ["GREEK", "SLAPSTICK", "MYSTERY"];
+const DISNEY_BACKGROUND_CLASSES = [
+  "backdrop-figure backdrop-disney backdrop-disney-1",
+  "backdrop-figure backdrop-disney backdrop-disney-2",
+];
+
+const FAMILY_ORDER = ["GREEK", "SLAPSTICK", "MYSTERY", "DISNEY"];
 const MOBILE_MEDIA_QUERY = "(max-width: 760px)";
 const ALL_IMAGE_ASSETS = Array.from(
-  new Set([...GREEK_IMAGE_ASSETS, ...LOONY_IMAGE_ASSETS, ...NETWORK_IMAGE_ASSETS]),
+  new Set([...GREEK_IMAGE_ASSETS, ...LOONY_IMAGE_ASSETS, ...NETWORK_IMAGE_ASSETS, ...DISNEY_IMAGE_ASSETS]),
 );
 
 function randomItem(items) {
@@ -174,6 +192,10 @@ function getSymbolAssetPool(symbol) {
 
   if (symbol.themeGroup === "MYSTERY" || symbol.type === "bonus") {
     return NETWORK_IMAGE_ASSETS;
+  }
+
+  if (symbol.themeGroup === "DISNEY") {
+    return DISNEY_IMAGE_ASSETS;
   }
 
   return [];
@@ -310,6 +332,10 @@ export default function App() {
   );
   const backgroundNetworkImages = useMemo(
     () => deterministicShuffle(NETWORK_IMAGE_ASSETS, "network-background"),
+    [],
+  );
+  const backgroundDisneyImages = useMemo(
+    () => deterministicShuffle(DISNEY_IMAGE_ASSETS, "disney-background"),
     [],
   );
   const highlightedTiles = useMemo(
@@ -570,6 +596,17 @@ export default function App() {
             fetchPriority="low"
           />
         ))}
+        {backgroundDisneyImages
+          .slice(0, isMobileLayout ? 1 : DISNEY_BACKGROUND_CLASSES.length)
+          .map((src, index) => (
+          <AssetImage
+            key={`${src}-${index}`}
+            src={src}
+            alt=""
+            className={DISNEY_BACKGROUND_CLASSES[index]}
+            fetchPriority="low"
+          />
+        ))}
       </div>
       <div className="page-noise" />
       <div className="coin-burst" aria-hidden="true">
@@ -580,7 +617,7 @@ export default function App() {
 
       <header className={isMobileLayout ? "mobile-topbar" : "simple-topbar"}>
         <div className="brand-block">
-          <p className="eyebrow">Greek Puzzle Slot</p>
+          <p className="eyebrow">Cartoon Puzzle Slot</p>
           <h1>{config.title}</h1>
         </div>
 
