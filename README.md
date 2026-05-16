@@ -23,7 +23,7 @@ React frontend for `Whacky Game`, with gameplay resolved in the browser and wall
 - House edge: 6.5%
 - Hit frequency target: 40%
 - Volatility: medium
-- 5 reels x 3 rows x 10 paylines
+- 4 reels x 4 rows x 10 paylines
 - Wilds, scatters, free spins, and bonus-round feature
 
 ## Run locally

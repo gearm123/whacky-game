@@ -750,7 +750,7 @@ button {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
   margin: 12px 0 10px;
   padding: 10px;
@@ -1450,6 +1450,13 @@ button {
   margin-top: 22px;
 }
 
+.bonus-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 22px;
+}
+
 .bonus-card {
   min-height: 120px;
   border-radius: 22px;
@@ -1458,6 +1465,22 @@ button {
   color: #fff7d4;
   font-size: 1.02rem;
   font-weight: 700;
+}
+
+.bonus-choice-button {
+  display: grid;
+  gap: 10px;
+  align-content: center;
+  text-align: center;
+}
+
+.bonus-choice-button strong {
+  font-size: 1.65rem;
+}
+
+.bonus-choice-button small {
+  color: #fff4cf;
+  line-height: 1.4;
 }
 
 .bonus-card.revealed {
@@ -1471,6 +1494,20 @@ button {
   display: grid;
   gap: 14px;
   margin-top: 22px;
+}
+
+.free-spin-banner {
+  margin-top: 14px;
+}
+
+.free-spin-banner .feature-runner-pill,
+.free-spin-banner .feature-runner-copy {
+  margin-inline: auto;
+  text-align: center;
+}
+
+.bonus-prompt-copy {
+  margin-top: 16px;
 }
 
 .feature-runner-pill {
@@ -1821,6 +1858,10 @@ button {
   }
 
   .layout-mobile .bonus-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .layout-mobile .bonus-choice-grid {
     grid-template-columns: 1fr;
   }
 

@@ -192,6 +192,7 @@ function formatPayoutSummary(payouts) {
 function buildWinningTileKeys(board, paylines, uiState) {
   const keys = new Set();
   const lineWins = uiState?.lineWins ?? [];
+  const highlightedFeatureTiles = uiState?.highlightTileKeys ?? [];
 
   for (const lineWin of lineWins) {
     const payline = paylines?.[Math.max(0, (lineWin.line ?? 1) - 1)];
@@ -203,6 +204,10 @@ function buildWinningTileKeys(board, paylines, uiState) {
       keys.add(`${reelIndex}-${payline[reelIndex]}`);
     }
   }
+
+  highlightedFeatureTiles.forEach((key) => {
+    keys.add(key);
+  });
 
   if (keys.size === 0 && (uiState?.lastWin ?? 0) > 0) {
     board.forEach((column, columnIndex) => {
@@ -244,20 +249,33 @@ export default function App() {
     () => Object.fromEntries(symbols.map((symbol) => [symbol.id, symbol])),
     [symbols],
   );
-  const symbolIds = useMemo(() => symbols.map((symbol) => symbol.id), [symbols]);
+  const symbolIds = useMemo(
+    () => symbols.filter((symbol) => symbol.type === "regular").map((symbol) => symbol.id),
+    [symbols],
+  );
   const spinCost = config?.economics.spinCost ?? 0;
   const flashTier = uiState?.flashTier ?? "none";
   const lastWin = uiState?.lastWin ?? 0;
   const hasWin = lastWin > 0;
   const specialState = uiState?.specialState ?? null;
+  const isManualFreeSpin = specialState?.type === "free_spins";
+  const isManualBonusFeature =
+    specialState?.type === "bonus_round" || specialState?.type === "mega_bonus_round";
   const overlayTheme = uiState?.overlayTheme ?? "greek";
   const winBannerLabel = uiState?.winBannerLabel ?? (hasWin ? "WIN" : "READY");
-  const winBannerValue = hasWin ? `${formatCoins(lastWin)} coins` : `${formatCoins(spinCost)} coins`;
+  const displayedSpinCost = isManualFreeSpin ? 0 : spinCost;
+  const winBannerValue = isManualFreeSpin
+    ? `${formatCoins(displayedSpinCost)} coins`
+    : hasWin
+      ? `${formatCoins(lastWin)} coins`
+      : `${formatCoins(displayedSpinCost)} coins`;
   const actionLabel = isSpinning
     ? "Resolving..."
     : isFeatureRunning
       ? "Running Feature..."
-      : "Play";
+      : isManualFreeSpin
+        ? "Play Free Spin"
+        : "Play";
 
   const boardImages = useMemo(() => {
     const boardSeed = JSON.stringify(board);
@@ -321,7 +339,7 @@ export default function App() {
     );
   }, [symbols, themePayouts]);
   const specialSymbols = useMemo(
-    () => symbols.filter((symbol) => symbol.type !== "regular"),
+    () => symbols.filter((symbol) => symbol.type === "wild"),
     [symbols],
   );
 
@@ -385,39 +403,6 @@ export default function App() {
   }, [config, isSpinning, symbolIds]);
 
   useEffect(() => {
-    if (!config || !sessionId || !specialState?.active || isSpinning || isFeatureRunning || !gameState) {
-      return undefined;
-    }
-
-    const timeoutId = window.setTimeout(async () => {
-      setIsFeatureRunning(true);
-      setError("");
-
-      try {
-        const payload = runGameFeature(gameState, board);
-        const walletPayload = await settleWallet({
-          previousBalance: gameState.balance,
-          nextBalance: payload.state.balance,
-          delta: payload.state.balance - gameState.balance,
-          reason: payload.events?.[0]?.type ?? "feature_resolution",
-        });
-
-        setSessionId(payload.sessionId);
-        setBoard(payload.board);
-        setGameState({ ...payload.state, balance: walletPayload.balance });
-        setUiState(payload.uiState);
-        setEvents(payload.events ?? []);
-      } catch (featureError) {
-        setError(featureError instanceof Error ? featureError.message : "Feature resolution failed.");
-      } finally {
-        setIsFeatureRunning(false);
-      }
-    }, specialState.autoAdvanceMs ?? 1400);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [board, config, gameState, sessionId, specialState, isSpinning, isFeatureRunning]);
-
-  useEffect(() => {
     if (isSpinning || isFeatureRunning || highlightedTiles.size === 0) {
       setWinningTileKeys([]);
       return undefined;
@@ -434,7 +419,8 @@ export default function App() {
   }, [highlightedTiles, isFeatureRunning, isSpinning]);
 
   async function handleSpin() {
-    if (!config || !sessionId || !gameState || isSpinning || isFeatureRunning || specialState?.active) {
+    const isBlockedByFeature = specialState?.active && specialState.type !== "free_spins";
+    if (!config || !sessionId || !gameState || isSpinning || isFeatureRunning || isBlockedByFeature) {
       return;
     }
 
@@ -444,7 +430,7 @@ export default function App() {
     const startTime = Date.now();
 
     try {
-      const payload = runGameSpin(gameState);
+      const payload = isManualFreeSpin ? runGameFeature(gameState, board) : runGameSpin(gameState);
       const walletPayload = await settleWallet({
         previousBalance: gameState.balance,
         nextBalance: payload.state.balance,
@@ -463,6 +449,35 @@ export default function App() {
       setError(spinError instanceof Error ? spinError.message : "Spin request failed.");
     } finally {
       setIsSpinning(false);
+    }
+  }
+
+  async function handleFeatureChoice(stakeChoice) {
+    if (!isManualBonusFeature || !gameState || isSpinning || isFeatureRunning) {
+      return;
+    }
+
+    setError("");
+    setIsFeatureRunning(true);
+
+    try {
+      const payload = runGameFeature(gameState, board, stakeChoice);
+      const walletPayload = await settleWallet({
+        previousBalance: gameState.balance,
+        nextBalance: payload.state.balance,
+        delta: payload.state.balance - gameState.balance,
+        reason: payload.events?.[0]?.type ?? "feature_resolution",
+      });
+
+      setSessionId(payload.sessionId);
+      setBoard(payload.board);
+      setGameState({ ...payload.state, balance: walletPayload.balance });
+      setUiState(payload.uiState);
+      setEvents(payload.events ?? []);
+    } catch (featureError) {
+      setError(featureError instanceof Error ? featureError.message : "Feature resolution failed.");
+    } finally {
+      setIsFeatureRunning(false);
     }
   }
 
@@ -641,13 +656,22 @@ export default function App() {
             {error ? <p className="error-text">{error}</p> : null}
           </div>
 
+          {isManualFreeSpin ? (
+            <div className="feature-runner free-spin-banner">
+              <div className="feature-runner-pill">Free Spins Ready</div>
+              <div className="feature-runner-copy">
+                A full same-family row unlocked free spins. Press Play to use the next free spin at 0 coins.
+              </div>
+            </div>
+          ) : null}
+
           {!isMobileLayout ? (
             <div className="controls simple-controls">
               <button
                 type="button"
                 className="spin-button"
                 onClick={handleSpin}
-                disabled={isSpinning || isFeatureRunning || specialState?.active}
+                disabled={isSpinning || isFeatureRunning || (specialState?.active && specialState.type !== "free_spins")}
               >
                 {actionLabel}
               </button>
@@ -669,7 +693,7 @@ export default function App() {
             type="button"
             className="spin-button"
             onClick={handleSpin}
-            disabled={isSpinning || isFeatureRunning || specialState?.active}
+            disabled={isSpinning || isFeatureRunning || (specialState?.active && specialState.type !== "free_spins")}
           >
             {actionLabel}
           </button>
@@ -705,7 +729,9 @@ export default function App() {
                 <h3>How To Play</h3>
                 <ul>
                   <li>Each spin costs {formatCoins(spinCost)} fake coins.</li>
+                  <li>Each unlocked free spin costs 0 coins and must be played manually.</li>
                   <li>Match 3, 4, or 5 pieces from the same family across active paylines to win.</li>
+                  <li>Bonus rounds and mega bonus rounds ask you to choose 200 or 300 before each feature spin.</li>
                   <li>Wild pieces can help complete matching lines.</li>
                   <li>The frontend resolves each spin and feature locally and keeps the balance in local browser storage.</li>
                 </ul>
@@ -715,12 +741,17 @@ export default function App() {
                 <h3>Special Events</h3>
                 <ul>
                   <li>
-                    Scatter starts {config.features?.baseFreeSpins ?? 0} free spins with a{" "}
+                    Any full same-family row starts {config.features?.baseFreeSpins ?? 0} free spins with a{" "}
                     {config.features?.freeSpinMultiplier ?? 1}x multiplier.
                   </li>
                   <li>
-                    Bonus starts an automatic reward sequence with up to{" "}
-                    {config.features?.bonusPicks ?? 0} reveal steps.
+                    A row or column with 5 or more tiles from the same family starts a{" "}
+                    {config.features?.bonusRoundSpins ?? 0}-spin bonus round at x
+                    {config.features?.bonusRoundMultiplier ?? 1}.
+                  </li>
+                  <li>
+                    All 16 tiles from the same family start a {config.features?.megaBonusSpins ?? 0}-spin mega bonus
+                    round at x{config.features?.megaBonusMultiplier ?? 1}.
                   </li>
                   {(config.eventDefinitions ?? []).map((eventDefinition) => (
                     <li key={eventDefinition.type}>
@@ -753,9 +784,7 @@ export default function App() {
                       <p className="family-prize">
                         {symbol.type === "wild"
                           ? "Substitutes for regular family pieces."
-                          : symbol.type === "scatter"
-                            ? formatPayoutSummary(symbol.payouts)
-                            : "Triggers the mystery bonus sequence."}
+                          : "Special event symbols are currently handled through family patterns instead of board icons."}
                       </p>
                     </article>
                   ))}
@@ -774,14 +803,16 @@ export default function App() {
         </div>
       ) : null}
 
-      {specialState?.active ? (
+      {isManualBonusFeature ? (
         <div
           className={`bonus-overlay overlay-${overlayTheme} ${
-            specialState.type === "bonus_round" ? "bonus-overlay-jackpot" : ""
+            specialState?.type === "mega_bonus_round" || specialState?.type === "bonus_round"
+              ? "bonus-overlay-jackpot"
+              : ""
           }`}
         >
           <div className={`bonus-modal modal-${overlayTheme}`}>
-            {specialState.type === "bonus_round" ? (
+            {specialState?.type === "mega_bonus_round" || specialState?.type === "bonus_round" ? (
               <div className="bonus-jackpot-burst" aria-hidden="true">
                 {Array.from({ length: 14 }, (_, index) => (
                   <span key={index} className="bonus-glitter" />
@@ -791,43 +822,45 @@ export default function App() {
 
             <p className="section-label">Special Event</p>
             <div className="special-event-pill">
-              {specialState.type === "bonus_round" ? "Bonus Round" : "Free Spins"}
+              {specialState?.type === "mega_bonus_round" ? "Mega Bonus Round" : "Bonus Round"}
             </div>
-            <h2>{specialState.title}</h2>
+            <h2>{specialState?.title}</h2>
             <p className="bonus-copy jackpot-copy">
-              {specialState.type === "bonus_round"
-                ? "Bonus round unlocked. Jackpot-style rewards are now being revealed."
-                : "Free spins unlocked. Extra spins are now playing automatically."}
+              {specialState?.type === "mega_bonus_round"
+                ? "Mega bonus unlocked. Choose 200 or 300 for each of the next spins and stack that choice with x7."
+                : "Bonus round unlocked. Choose 200 or 300 for each of the next spins and stack that choice with x4."}
             </p>
-            <p className="bonus-copy bonus-progress">{specialState.progressLabel ?? specialState.subtitle}</p>
-            <p className="bonus-copy">{specialState.subtitle}</p>
+            <p className="bonus-copy bonus-progress">{specialState?.progressLabel ?? specialState?.subtitle}</p>
+            <p className="bonus-copy">{specialState?.subtitle}</p>
 
-            {specialState.type === "bonus_round" ? (
-              <>
-                <div className="bonus-event-banner">Bonus Round is live</div>
-                <div className="bonus-grid">
-                  {Array.from({ length: 3 }, (_, index) => {
-                  const reward = specialState.revealedRewards?.[index];
-
-                  return (
-                    <div
-                      key={index}
-                      className={reward ? "bonus-card revealed" : "bonus-card"}
-                    >
-                      <span>{reward ? `${formatCoins(reward)} coins` : "Auto Reveal Pending"}</span>
-                    </div>
-                  );
-                  })}
-                </div>
-              </>
-            ) : (
-              <div className="feature-runner">
-                <div className="feature-runner-pill">Free Spins in progress</div>
-                <div className="feature-runner-copy">
-                  The game is auto-playing the remaining free spins now.
-                </div>
+            <div className="bonus-event-banner">
+              {specialState?.promptLabel ?? "Choose the stake mode for the next feature spin"}
+            </div>
+            <div className="bonus-choice-grid">
+              {(specialState?.availableStakeOptions ?? []).map((stakeChoice) => (
+                <button
+                  key={stakeChoice}
+                  type="button"
+                  className="bonus-card bonus-choice-button"
+                  onClick={() => handleFeatureChoice(stakeChoice)}
+                  disabled={isSpinning || isFeatureRunning}
+                >
+                  <span>{formatCoins(stakeChoice)} Mode</span>
+                  <strong>x{specialState?.choiceMultipliers?.[stakeChoice] ?? 1}</strong>
+                  <small>
+                    x{specialState?.featureMultiplier ?? 1} feature multiplier stays on top
+                  </small>
+                </button>
+              ))}
+            </div>
+            <div className="feature-runner bonus-prompt-copy">
+              <div className="feature-runner-pill">
+                {specialState?.type === "mega_bonus_round" ? "10-spin mega bonus" : "5-spin bonus round"}
               </div>
-            )}
+              <div className="feature-runner-copy">
+                Your choice changes the payout mode for this spin only. The feature multiplier is applied after that.
+              </div>
+            </div>
           </div>
         </div>
       ) : null}

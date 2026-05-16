@@ -1,14 +1,17 @@
+const GRID_REELS = 4;
+const GRID_ROWS = 4;
+
 const PAYLINES = [
-  [0, 0, 0, 0, 0],
-  [1, 1, 1, 1, 1],
-  [2, 2, 2, 2, 2],
-  [0, 1, 2, 1, 0],
-  [2, 1, 0, 1, 2],
-  [0, 0, 1, 0, 0],
-  [2, 2, 1, 2, 2],
-  [1, 0, 0, 0, 1],
-  [1, 2, 2, 2, 1],
-  [0, 1, 1, 1, 0],
+  [0, 0, 0, 0],
+  [1, 1, 1, 1],
+  [2, 2, 2, 2],
+  [3, 3, 3, 3],
+  [0, 1, 2, 3],
+  [3, 2, 1, 0],
+  [0, 0, 1, 1],
+  [2, 2, 3, 3],
+  [1, 2, 1, 0],
+  [2, 1, 2, 3],
 ];
 
 const SYMBOLS = [
@@ -97,22 +100,30 @@ const CONFIG = {
   title: "Whacky Game",
   subtitle: "Frontend-owned puzzle slot engine",
   layout: {
-    reels: 5,
-    rows: 3,
+    reels: GRID_REELS,
+    rows: GRID_ROWS,
     paylines: PAYLINES,
   },
   economics: {
     spinCost: 100,
-    targetRtp: 0.98,
-    houseEdge: 0.02,
-    hitFrequencyRange: [0.34, 0.44],
-    configuredHitFrequency: 0.38,
+    targetRtp: 0.94,
+    houseEdge: 0.06,
+    hitFrequencyRange: [0.3, 0.42],
+    configuredHitFrequency: 0.36,
     volatility: "medium-high",
   },
   features: {
     baseFreeSpins: 8,
     freeSpinMultiplier: 2,
-    bonusPicks: 3,
+    bonusRoundSpins: 5,
+    bonusRoundMultiplier: 4,
+    megaBonusSpins: 10,
+    megaBonusMultiplier: 7,
+    bonusStakeOptions: [200, 300],
+    bonusStakeMultipliers: {
+      200: 2,
+      300: 3,
+    },
   },
   presentation: {
     themeName: "Greek empire cartoon",
@@ -120,16 +131,36 @@ const CONFIG = {
       base: "greek",
       freeSpins: "slapstick",
       bonusRound: "mystery",
+      megaBonusRound: "mystery",
     },
   },
   eventDefinitions: [
     { type: "session_started", label: "Session Started", description: "A new frontend gameplay session started." },
-    { type: "free_spins_started", label: "Free Spins Started", description: "The free-spin feature started." },
-    { type: "free_spins_retriggered", label: "Free Spins Retriggered", description: "Additional free spins were awarded." },
+    { type: "free_spins_started", label: "Free Spins Started", description: "A full same-family row unlocked free spins." },
+    { type: "free_spins_retriggered", label: "Free Spins Retriggered", description: "Another full same-family row awarded extra free spins." },
     { type: "free_spins_completed", label: "Free Spins Completed", description: "The free-spin feature completed." },
-    { type: "bonus_round_started", label: "Bonus Round Started", description: "The mystery bonus feature started." },
-    { type: "bonus_round_progress", label: "Bonus Round Progress", description: "A bonus reward step resolved." },
-    { type: "bonus_round_completed", label: "Bonus Round Completed", description: "The mystery bonus feature completed." },
+    {
+      type: "bonus_round_started",
+      label: "Bonus Round Started",
+      description: "A row or column plus 5+ matching family tiles unlocked a 5-spin x4 bonus.",
+    },
+    {
+      type: "bonus_round_progress",
+      label: "Bonus Round Progress",
+      description: "A manual bonus spin resolved using the selected 200 or 300 stake mode.",
+    },
+    { type: "bonus_round_completed", label: "Bonus Round Completed", description: "The 5-spin bonus round completed." },
+    {
+      type: "mega_bonus_round_started",
+      label: "Mega Bonus Started",
+      description: "All 16 tiles matched one family, unlocking a 10-spin x7 mega bonus.",
+    },
+    {
+      type: "mega_bonus_round_progress",
+      label: "Mega Bonus Progress",
+      description: "A manual mega bonus spin resolved using the selected 200 or 300 stake mode.",
+    },
+    { type: "mega_bonus_round_completed", label: "Mega Bonus Completed", description: "The 10-spin mega bonus completed." },
   ],
   themePayouts: THEME_PAYOUTS,
   symbols: SYMBOLS,
@@ -172,7 +203,9 @@ function weightedPick(entries) {
 }
 
 function createRandomBoard() {
-  return Array.from({ length: 5 }, () => Array.from({ length: 3 }, () => randomItem(REGULAR_IDS)));
+  return Array.from({ length: GRID_REELS }, () =>
+    Array.from({ length: GRID_ROWS }, () => randomItem(REGULAR_IDS)),
+  );
 }
 
 function getWinTier(amount) {
@@ -193,6 +226,32 @@ function getWinTier(amount) {
 
 function createEvent(type, summary, payload = {}) {
   return { type, summary, payload };
+}
+
+function pickRandomThemeGroup() {
+  return randomItem(["GREEK", "MYSTERY", "SLAPSTICK"]);
+}
+
+function getThemeFamilyForSymbols(symbolIds, symbolMap) {
+  let themeGroup = null;
+
+  for (const symbolId of symbolIds) {
+    const symbol = symbolMap[symbolId];
+    if (!symbol || symbol.type !== "regular") {
+      return null;
+    }
+
+    if (!themeGroup) {
+      themeGroup = symbol.themeGroup;
+      continue;
+    }
+
+    if (symbol.themeGroup !== themeGroup) {
+      return null;
+    }
+  }
+
+  return themeGroup;
 }
 
 function evaluateBoard(board, multiplier) {
@@ -259,6 +318,63 @@ function evaluateBoard(board, multiplier) {
     };
   }).filter(Boolean);
 
+  const regularTileKeysByFamily = {
+    GREEK: [],
+    MYSTERY: [],
+    SLAPSTICK: [],
+  };
+
+  board.forEach((column, columnIndex) => {
+    column.forEach((symbolId, rowIndex) => {
+      const symbol = symbolMap[symbolId];
+      if (symbol?.type === "regular" && regularTileKeysByFamily[symbol.themeGroup]) {
+        regularTileKeysByFamily[symbol.themeGroup].push(`${columnIndex}-${rowIndex}`);
+      }
+    });
+  });
+
+  const rowFamilyWins = Array.from({ length: GRID_ROWS }, (_, rowIndex) => {
+    const rowSymbols = Array.from({ length: GRID_REELS }, (_, reelIndex) => board[reelIndex][rowIndex]);
+    const themeGroup = getThemeFamilyForSymbols(rowSymbols, symbolMap);
+
+    if (!themeGroup) {
+      return null;
+    }
+
+    return {
+      family: themeGroup,
+      displayName: THEME_PAYOUTS[themeGroup]?.label ?? themeGroup,
+      orientation: "row",
+      index: rowIndex,
+      tileKeys: Array.from({ length: GRID_REELS }, (_, reelIndex) => `${reelIndex}-${rowIndex}`),
+    };
+  }).filter(Boolean);
+
+  const columnFamilyWins = Array.from({ length: GRID_REELS }, (_, columnIndex) => {
+    const columnSymbols = board[columnIndex];
+    const themeGroup = getThemeFamilyForSymbols(columnSymbols, symbolMap);
+
+    if (!themeGroup) {
+      return null;
+    }
+
+    return {
+      family: themeGroup,
+      displayName: THEME_PAYOUTS[themeGroup]?.label ?? themeGroup,
+      orientation: "column",
+      index: columnIndex,
+      tileKeys: Array.from({ length: GRID_ROWS }, (_, rowIndex) => `${columnIndex}-${rowIndex}`),
+    };
+  }).filter(Boolean);
+
+  const familyCounts = Object.fromEntries(
+    Object.entries(regularTileKeysByFamily).map(([family, tileKeys]) => [family, tileKeys.length]),
+  );
+  const megaBonusFamily = Object.keys(familyCounts).find((family) => familyCounts[family] === GRID_REELS * GRID_ROWS) ?? null;
+  const bonusTriggerMatch = [...rowFamilyWins, ...columnFamilyWins].find(
+    (match) => familyCounts[match.family] >= 5 && match.family !== megaBonusFamily,
+  ) ?? null;
+  const freeSpinMatch = rowFamilyWins[0] ?? null;
   const scatterCount = board.flat().filter((entry) => entry === "SCATTER").length;
   const bonusCount = board.flat().filter((entry) => entry === "BONUS").length;
   const totalWin = lineWins.reduce((sum, entry) => sum + entry.amount, 0) +
@@ -266,10 +382,26 @@ function evaluateBoard(board, multiplier) {
 
   return {
     lineWins,
+    rowFamilyWins,
+    columnFamilyWins,
+    familyCounts,
     scatterCount,
     bonusCount,
-    freeSpinsAward: scatterCount >= 3 ? CONFIG.features.baseFreeSpins + (scatterCount - 3) * 2 : 0,
-    bonusTriggered: bonusCount >= 3,
+    freeSpinTriggerFamily: freeSpinMatch?.displayName ?? null,
+    freeSpinsAward: !megaBonusFamily && !bonusTriggerMatch && freeSpinMatch ? CONFIG.features.baseFreeSpins : 0,
+    bonusTriggered: Boolean(bonusTriggerMatch),
+    bonusTriggerFamily: bonusTriggerMatch?.displayName ?? null,
+    bonusTriggerOrientation: bonusTriggerMatch?.orientation ?? null,
+    megaBonusTriggered: Boolean(megaBonusFamily),
+    megaBonusFamily: megaBonusFamily ? THEME_PAYOUTS[megaBonusFamily]?.label ?? megaBonusFamily : null,
+    highlightTileKeys:
+      megaBonusFamily
+        ? regularTileKeysByFamily[megaBonusFamily]
+        : bonusTriggerMatch
+          ? regularTileKeysByFamily[bonusTriggerMatch.family]
+          : freeSpinMatch
+            ? freeSpinMatch.tileKeys
+            : [],
     totalWin,
   };
 }
@@ -291,6 +423,64 @@ function createThemeWinBoard(themeGroup, count, multiplier) {
   return createLossBoard(multiplier);
 }
 
+function createFullRowFamilyBoard(themeGroup, multiplier) {
+  const themeIds = SYMBOLS.filter((symbol) => symbol.themeGroup === themeGroup).map((symbol) => symbol.id);
+  const board = createRandomBoard();
+  const rowIndex = randomInt(GRID_ROWS);
+
+  for (let reel = 0; reel < GRID_REELS; reel += 1) {
+    board[reel][rowIndex] = randomItem(themeIds);
+  }
+
+  const result = evaluateBoard(board, multiplier);
+  if (result.freeSpinsAward > 0) {
+    return { board, result };
+  }
+
+  return createFullRowFamilyBoard(themeGroup, multiplier);
+}
+
+function createBonusFamilyBoard(themeGroup, multiplier) {
+  const themeIds = SYMBOLS.filter((symbol) => symbol.themeGroup === themeGroup).map((symbol) => symbol.id);
+
+  for (let attempt = 0; attempt < 300; attempt += 1) {
+    const board = createRandomBoard();
+    const useColumn = Math.random() < 0.45;
+
+    if (useColumn) {
+      const columnIndex = randomInt(GRID_REELS);
+      for (let rowIndex = 0; rowIndex < GRID_ROWS; rowIndex += 1) {
+        board[columnIndex][rowIndex] = randomItem(themeIds);
+      }
+    } else {
+      const rowIndex = randomInt(GRID_ROWS);
+      for (let reelIndex = 0; reelIndex < GRID_REELS; reelIndex += 1) {
+        board[reelIndex][rowIndex] = randomItem(themeIds);
+      }
+    }
+
+    const extraCells = randomItem([1, 2, 2, 3]);
+    for (let index = 0; index < extraCells; index += 1) {
+      board[randomInt(GRID_REELS)][randomInt(GRID_ROWS)] = randomItem(themeIds);
+    }
+
+    const result = evaluateBoard(board, multiplier);
+    if (result.bonusTriggered && !result.megaBonusTriggered) {
+      return { board, result };
+    }
+  }
+
+  return createBonusFamilyBoard(themeGroup, multiplier);
+}
+
+function createMegaBonusFamilyBoard(themeGroup, multiplier) {
+  const themeIds = SYMBOLS.filter((symbol) => symbol.themeGroup === themeGroup).map((symbol) => symbol.id);
+  const board = Array.from({ length: GRID_REELS }, () =>
+    Array.from({ length: GRID_ROWS }, () => randomItem(themeIds)),
+  );
+  return { board, result: evaluateBoard(board, multiplier) };
+}
+
 function createLossBoard(multiplier) {
   for (let attempt = 0; attempt < 300; attempt += 1) {
     const board = createRandomBoard();
@@ -309,8 +499,8 @@ function addSpecialSymbols(symbolId, count, multiplier) {
   const used = new Set();
 
   while (used.size < count) {
-    const reel = randomInt(5);
-    const row = randomInt(3);
+    const reel = randomInt(GRID_REELS);
+    const row = randomInt(GRID_ROWS);
     const key = `${reel}-${row}`;
     if (used.has(key)) {
       continue;
@@ -328,15 +518,18 @@ function createFeatureCards(state, uiState) {
     {
       title: "Slapstick Spins",
       value: state.activeFeature?.type === "free_spins" ? state.activeFeature.remaining : 0,
-      note: "Triggered by Toon Theater",
+      note: "Triggered by a full same-family row",
     },
     {
-      title: "Mystery Round",
+      title:
+        state.activeFeature?.type === "mega_bonus_round"
+          ? "Mega Bonus"
+          : "Bonus Round",
       value:
-        state.activeFeature?.type === "bonus_round"
-          ? `${state.activeFeature.remainingSteps}/${state.activeFeature.totalSteps}`
+        state.activeFeature?.type === "bonus_round" || state.activeFeature?.type === "mega_bonus_round"
+          ? `${state.activeFeature.remaining}/${state.activeFeature.totalSpins}`
           : "READY",
-      note: "Auto mystery-caper sequence",
+      note: "Manual 200 or 300 stake prompt each bonus spin",
     },
     {
       title: "Excitement",
@@ -351,13 +544,17 @@ function createUiState(state, result, events, resultMessage) {
   const flashTier = getWinTier(lastWin);
   const activeFeature = state.activeFeature;
   const overlayTheme =
-    activeFeature?.type === "bonus_round"
+    activeFeature?.type === "mega_bonus_round"
+      ? CONFIG.presentation.overlayThemes.megaBonusRound
+      : activeFeature?.type === "bonus_round"
       ? CONFIG.presentation.overlayThemes.bonusRound
       : activeFeature?.type === "free_spins"
         ? CONFIG.presentation.overlayThemes.freeSpins
         : CONFIG.presentation.overlayThemes.base;
   const celebrationLabel =
-    events.find((event) => event.type === "bonus_round_started")
+    events.find((event) => event.type === "mega_bonus_round_started")
+      ? "MEGA BONUS"
+      : events.find((event) => event.type === "bonus_round_started")
       ? "BONUS ROUND"
       : events.find((event) => event.type === "free_spins_started")
         ? "FREE SPINS"
@@ -375,19 +572,25 @@ function createUiState(state, result, events, resultMessage) {
           active: true,
           type: "free_spins",
           title: "Free Spins",
-          subtitle: `${activeFeature.remaining} free spins remain.`,
+          subtitle: `${activeFeature.remaining} free spins remain. Press Play to use the next one at 0 coins.`,
           progressLabel: `${activeFeature.played}/${activeFeature.totalAwarded} spins played`,
-          autoAdvanceMs: 1000,
+          manualPlay: true,
         }
-      : activeFeature?.type === "bonus_round"
+      : activeFeature?.type === "bonus_round" || activeFeature?.type === "mega_bonus_round"
         ? {
             active: true,
-            type: "bonus_round",
-            title: "Bonus Round",
-            subtitle: `${activeFeature.remainingSteps} bonus reveals remain.`,
-            progressLabel: `${activeFeature.totalSteps - activeFeature.remainingSteps}/${activeFeature.totalSteps} reveals opened`,
-            autoAdvanceMs: 1000,
-            revealedRewards: activeFeature.revealedRewards,
+            type: activeFeature.type,
+            title: activeFeature.type === "mega_bonus_round" ? "Mega Bonus Round" : "Bonus Round",
+            subtitle:
+              activeFeature.type === "mega_bonus_round"
+                ? `${activeFeature.remaining} mega bonus spins remain at x${activeFeature.featureMultiplier}.`
+                : `${activeFeature.remaining} bonus spins remain at x${activeFeature.featureMultiplier}.`,
+            progressLabel: `${activeFeature.played}/${activeFeature.totalSpins} spins played`,
+            manualChoice: true,
+            availableStakeOptions: CONFIG.features.bonusStakeOptions,
+            choiceMultipliers: CONFIG.features.bonusStakeMultipliers,
+            featureMultiplier: activeFeature.featureMultiplier,
+            promptLabel: "Choose 200 or 300 for the next spin",
           }
         : null;
 
@@ -395,8 +598,10 @@ function createUiState(state, result, events, resultMessage) {
     modeLabel: specialState ? "Special Feature" : "Base Game",
     multiplierValue: activeFeature?.type === "free_spins" ? CONFIG.features.freeSpinMultiplier : 1,
     featureBadge:
-      activeFeature?.type === "bonus_round"
-        ? "Mystery bonus live"
+      activeFeature?.type === "mega_bonus_round"
+        ? "Mega bonus live"
+        : activeFeature?.type === "bonus_round"
+          ? "Bonus round live"
         : activeFeature?.type === "free_spins"
           ? `${activeFeature.remaining} slapstick spins active`
           : "Base reels hot",
@@ -404,12 +609,26 @@ function createUiState(state, result, events, resultMessage) {
     celebrationLabel,
     stageTitle: celebrationLabel || (specialState ? "Feature active" : "Align the reels"),
     stageSubcopy: specialState
-      ? "The frontend is auto-running the special feature and updating the board in real time."
+      ? activeFeature?.type === "free_spins"
+        ? "A full same-family row unlocked free spins. Press Play to use each free spin at 0 coins."
+        : activeFeature?.type === "mega_bonus_round"
+          ? "All 16 tiles matched one family. Choose 200 or 300 before each mega bonus spin."
+          : "A row or column plus 5 matching family tiles unlocked a bonus round. Choose 200 or 300 before each bonus spin."
       : "The frontend resolves regular wins, losses, free spins, and bonus rounds directly.",
     resultMessage,
     lastWin,
-    winBannerLabel: celebrationLabel || (lastWin > 0 ? "WIN CONFIRMED" : "SPIN READY"),
+    winBannerLabel: celebrationLabel
+      || (activeFeature?.type === "free_spins"
+        ? "FREE SPIN READY"
+        : activeFeature?.type === "mega_bonus_round"
+          ? "MEGA BONUS READY"
+          : activeFeature?.type === "bonus_round"
+            ? "BONUS READY"
+            : lastWin > 0
+              ? "WIN CONFIRMED"
+              : "SPIN READY"),
     lineWins: result?.lineWins ?? [],
+    highlightTileKeys: result?.highlightTileKeys ?? [],
     overlayTheme,
     featureCards: [],
     specialState,
@@ -469,27 +688,30 @@ export function runGameSpin(currentState) {
   state.totalSpins += 1;
 
   const outcomeType = weightedPick([
-    { type: "lose", weight: 60 },
-    { type: "greekWin", weight: 11 },
-    { type: "mysteryWin", weight: 9 },
+    { type: "lose", weight: 63 },
+    { type: "greekWin", weight: 13 },
+    { type: "mysteryWin", weight: 11 },
     { type: "slapstickWin", weight: 8 },
-    { type: "freeSpins", weight: 8 },
-    { type: "bonusRound", weight: 4 },
+    { type: "freeSpins", weight: 4 },
+    { type: "bonusRound", weight: 0.8 },
+    { type: "megaBonusRound", weight: 0.2 },
   ]);
 
   let boardPayload;
   if (outcomeType === "lose") {
     boardPayload = createLossBoard(1);
   } else if (outcomeType === "freeSpins") {
-    boardPayload = addSpecialSymbols("SCATTER", randomItem([3, 4]), 1);
+    boardPayload = createFullRowFamilyBoard(pickRandomThemeGroup(), 1);
   } else if (outcomeType === "bonusRound") {
-    boardPayload = addSpecialSymbols("BONUS", 3, 1);
+    boardPayload = createBonusFamilyBoard(pickRandomThemeGroup(), 1);
+  } else if (outcomeType === "megaBonusRound") {
+    boardPayload = createMegaBonusFamilyBoard(pickRandomThemeGroup(), 1);
   } else if (outcomeType === "greekWin") {
-    boardPayload = createThemeWinBoard("GREEK", randomItem([3, 3, 3, 4]), 1);
+    boardPayload = createThemeWinBoard("GREEK", randomItem([3, 3, 4]), 1);
   } else if (outcomeType === "mysteryWin") {
-    boardPayload = createThemeWinBoard("MYSTERY", randomItem([3, 3, 4, 4]), 1);
+    boardPayload = createThemeWinBoard("MYSTERY", randomItem([3, 4, 4]), 1);
   } else {
-    boardPayload = createThemeWinBoard("SLAPSTICK", randomItem([3, 3, 3, 4]), 1);
+    boardPayload = createThemeWinBoard("SLAPSTICK", randomItem([3, 3, 4]), 1);
   }
 
   const result = boardPayload.result;
@@ -497,35 +719,63 @@ export function runGameSpin(currentState) {
   state.totalWon += result.totalWin;
 
   let events = [];
-  if (result.freeSpinsAward > 0) {
+  if (result.megaBonusTriggered) {
+    state.activeFeature = {
+      type: "mega_bonus_round",
+      remaining: CONFIG.features.megaBonusSpins,
+      totalSpins: CONFIG.features.megaBonusSpins,
+      played: 0,
+      featureMultiplier: CONFIG.features.megaBonusMultiplier,
+      stakeOptions: CONFIG.features.bonusStakeOptions,
+      totalFeatureWin: 0,
+    };
+    events = [
+      createEvent(
+        "mega_bonus_round_started",
+        `${result.megaBonusFamily ?? "Family"} filled all 16 tiles and unlocked a 10-spin x7 mega bonus.`,
+      ),
+    ];
+  } else if (result.bonusTriggered) {
+    state.activeFeature = {
+      type: "bonus_round",
+      remaining: CONFIG.features.bonusRoundSpins,
+      totalSpins: CONFIG.features.bonusRoundSpins,
+      played: 0,
+      featureMultiplier: CONFIG.features.bonusRoundMultiplier,
+      stakeOptions: CONFIG.features.bonusStakeOptions,
+      totalFeatureWin: 0,
+    };
+    events = [
+      createEvent(
+        "bonus_round_started",
+        `${result.bonusTriggerFamily ?? "Family"} formed a ${result.bonusTriggerOrientation ?? "line"} and 5+ tiles to unlock a 5-spin x4 bonus.`,
+      ),
+    ];
+  } else if (result.freeSpinsAward > 0) {
     state.activeFeature = {
       type: "free_spins",
       remaining: result.freeSpinsAward,
       totalAwarded: result.freeSpinsAward,
       played: 0,
     };
-    events = [createEvent("free_spins_started", `${result.freeSpinsAward} free spins started.`)];
-  } else if (result.bonusTriggered) {
-    const rewards = [90, 120, 180, 320].slice().sort(() => Math.random() - 0.5);
-    state.activeFeature = {
-      type: "bonus_round",
-      totalSteps: rewards.length,
-      remainingSteps: rewards.length,
-      rewards,
-      revealedRewards: [],
-      totalBonusWin: 0,
-    };
-    events = [createEvent("bonus_round_started", "Mystery bonus started.")];
+    events = [
+      createEvent(
+        "free_spins_started",
+        `${result.freeSpinsAward} free spins started from a full ${result.freeSpinTriggerFamily ?? "family"} row.`,
+      ),
+    ];
   }
 
   const message =
-    result.totalWin > 0
-      ? `Regular win: ${result.lineWins[0]?.displayName ?? "Theme"} paid ${result.totalWin} coins.`
-      : result.freeSpinsAward > 0
-        ? `Free-spin feature started with ${result.freeSpinsAward} spins.`
-        : result.bonusTriggered
-          ? "Mystery bonus event started."
-          : "No payout this spin. Balance updated.";
+    result.megaBonusTriggered
+      ? `${result.megaBonusFamily ?? "Family"} filled the entire screen. Mega Bonus Round unlocked.`
+      : result.bonusTriggered
+        ? `${result.bonusTriggerFamily ?? "Family"} triggered a Bonus Round. Choose 200 or 300 for each bonus spin.`
+        : result.freeSpinsAward > 0
+          ? `${result.freeSpinTriggerFamily ?? "Family"} row complete. ${result.freeSpinsAward} free spins unlocked.`
+          : result.totalWin > 0
+            ? `Regular win: ${result.lineWins[0]?.displayName ?? "Theme"} paid ${result.totalWin} coins.`
+            : "No payout this spin. Balance updated.";
 
   return {
     sessionId: `frontend-live-session-${state.totalSpins}`,
@@ -536,7 +786,7 @@ export function runGameSpin(currentState) {
   };
 }
 
-export function runGameFeature(currentState, currentBoard) {
+export function runGameFeature(currentState, currentBoard, stakeChoice = null) {
   const state = clone(currentState);
   const activeFeature = state.activeFeature;
 
@@ -546,24 +796,24 @@ export function runGameFeature(currentState, currentBoard) {
 
   if (activeFeature.type === "free_spins") {
     const boardPayload = weightedPick([
-      { type: "lose", weight: 50 },
+      { type: "lose", weight: 56 },
       { type: "greekWin", weight: 16 },
       { type: "mysteryWin", weight: 14 },
       { type: "slapstickWin", weight: 12 },
-      { type: "retrigger", weight: 8 },
+      { type: "retrigger", weight: 2 },
     ]);
 
     let resultPayload;
     if (boardPayload === "lose") {
       resultPayload = createLossBoard(CONFIG.features.freeSpinMultiplier);
     } else if (boardPayload === "retrigger") {
-      resultPayload = addSpecialSymbols("SCATTER", 3, CONFIG.features.freeSpinMultiplier);
+      resultPayload = createFullRowFamilyBoard(pickRandomThemeGroup(), CONFIG.features.freeSpinMultiplier);
     } else if (boardPayload === "greekWin") {
-      resultPayload = createThemeWinBoard("GREEK", randomItem([3, 3, 4, 4]), CONFIG.features.freeSpinMultiplier);
+      resultPayload = createThemeWinBoard("GREEK", randomItem([3, 4, 4]), CONFIG.features.freeSpinMultiplier);
     } else if (boardPayload === "mysteryWin") {
-      resultPayload = createThemeWinBoard("MYSTERY", randomItem([3, 4, 4, 5]), CONFIG.features.freeSpinMultiplier);
+      resultPayload = createThemeWinBoard("MYSTERY", randomItem([3, 4, 4]), CONFIG.features.freeSpinMultiplier);
     } else {
-      resultPayload = createThemeWinBoard("SLAPSTICK", randomItem([3, 3, 4, 4]), CONFIG.features.freeSpinMultiplier);
+      resultPayload = createThemeWinBoard("SLAPSTICK", randomItem([3, 4, 4]), CONFIG.features.freeSpinMultiplier);
     }
 
     const result = resultPayload.result;
@@ -577,7 +827,12 @@ export function runGameFeature(currentState, currentBoard) {
     if (result.freeSpinsAward > 0) {
       activeFeature.remaining += result.freeSpinsAward;
       activeFeature.totalAwarded += result.freeSpinsAward;
-      events.push(createEvent("free_spins_retriggered", `${result.freeSpinsAward} extra free spins added.`));
+      events.push(
+        createEvent(
+          "free_spins_retriggered",
+          `${result.freeSpinsAward} extra free spins added from a full ${result.freeSpinTriggerFamily ?? "family"} row.`,
+        ),
+      );
     }
 
     if (activeFeature.remaining <= 0) {
@@ -594,31 +849,79 @@ export function runGameFeature(currentState, currentBoard) {
         state,
         result,
         events,
-        result.totalWin > 0
-          ? `Free spin paid ${result.totalWin} coins.`
-          : "Free spin resolved with no payout.",
+        result.freeSpinsAward > 0
+          ? `${result.freeSpinTriggerFamily ?? "Family"} row retriggered ${result.freeSpinsAward} extra free spins.`
+          : result.totalWin > 0
+            ? `Free spin paid ${result.totalWin} coins.`
+            : "Free spin resolved with no payout.",
       ),
     };
   }
 
-  const reward = activeFeature.rewards[activeFeature.totalSteps - activeFeature.remainingSteps];
-  activeFeature.remainingSteps -= 1;
-  activeFeature.revealedRewards.push(reward);
-  activeFeature.totalBonusWin += reward;
-  state.balance += reward;
-  state.totalWon += reward;
+  if (activeFeature.type !== "bonus_round" && activeFeature.type !== "mega_bonus_round") {
+    throw new Error("Unknown feature type.");
+  }
 
-  const events = [createEvent("bonus_round_progress", `Mystery bonus paid ${reward} coins.`)];
-  if (activeFeature.remainingSteps <= 0) {
+  const stakeMultiplier = CONFIG.features.bonusStakeMultipliers[stakeChoice];
+  if (!stakeMultiplier) {
+    throw new Error("Choose 200 or 300 before starting the bonus spin.");
+  }
+
+  const roundType = weightedPick([
+    { type: "lose", weight: 50 },
+    { type: "greekWin", weight: 18 },
+    { type: "mysteryWin", weight: 17 },
+    { type: "slapstickWin", weight: 15 },
+  ]);
+
+  let resultPayload;
+  const combinedMultiplier = activeFeature.featureMultiplier * stakeMultiplier;
+  if (roundType === "lose") {
+    resultPayload = createLossBoard(combinedMultiplier);
+  } else if (roundType === "greekWin") {
+    resultPayload = createThemeWinBoard("GREEK", randomItem([3, 4, 4]), combinedMultiplier);
+  } else if (roundType === "mysteryWin") {
+    resultPayload = createThemeWinBoard("MYSTERY", randomItem([3, 4, 4]), combinedMultiplier);
+  } else {
+    resultPayload = createThemeWinBoard("SLAPSTICK", randomItem([3, 4, 4]), combinedMultiplier);
+  }
+
+  const result = resultPayload.result;
+  state.totalSpins += 1;
+  state.balance += result.totalWin;
+  state.totalWon += result.totalWin;
+  activeFeature.played += 1;
+  activeFeature.remaining -= 1;
+  activeFeature.totalFeatureWin += result.totalWin;
+  activeFeature.lastStakeChoice = stakeChoice;
+
+  const progressEventType = activeFeature.type === "mega_bonus_round" ? "mega_bonus_round_progress" : "bonus_round_progress";
+  const completedEventType = activeFeature.type === "mega_bonus_round" ? "mega_bonus_round_completed" : "bonus_round_completed";
+  const featureLabel = activeFeature.type === "mega_bonus_round" ? "Mega bonus" : "Bonus round";
+  const events = [
+    createEvent(
+      progressEventType,
+      `${featureLabel} spin used ${stakeChoice} mode for ${stakeMultiplier}x on top of x${activeFeature.featureMultiplier}.`,
+    ),
+  ];
+
+  if (activeFeature.remaining <= 0) {
     state.activeFeature = null;
-    events.push(createEvent("bonus_round_completed", "Mystery bonus completed."));
+    events.push(createEvent(completedEventType, `${featureLabel} completed.`));
   }
 
   return {
     sessionId: `frontend-live-session-${state.totalSpins}`,
     state,
-    board: currentBoard,
+    board: resultPayload.board,
     events,
-    uiState: createUiState(state, { totalWin: reward, lineWins: [] }, events, `Mystery bonus paid ${reward} coins.`),
+    uiState: createUiState(
+      state,
+      result,
+      events,
+      result.totalWin > 0
+        ? `${featureLabel} spin paid ${result.totalWin} coins using ${stakeChoice} mode at x${activeFeature.featureMultiplier}.`
+        : `${featureLabel} spin used ${stakeChoice} mode and paid no coins.`,
+    ),
   };
 }
