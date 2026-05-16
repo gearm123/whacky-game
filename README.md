@@ -1,6 +1,6 @@
-# Whacky Slot
+# Whacky Game
 
-React frontend for `Whacky Slot`, with gameplay resolved in the browser and wallet/account sync handled by a separate backend service.
+React frontend for `Whacky Game`, with gameplay resolved in the browser and wallet/account sync handled by a separate backend service.
 
 ## Theme
 
@@ -45,7 +45,7 @@ npm run dev
 Start the frontend in a second terminal:
 
 ```bash
-cd C:\Users\gilak\Pictures\imperium-reels
+cd C:\Users\gilak\Pictures\whacky-game
 npm install
 npm run dev
 ```

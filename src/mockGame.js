@@ -93,8 +93,8 @@ const WILD_PAYOUTS = { 3: 60, 4: 210, 5: 700 };
 const SCATTER_PAYOUTS = { 3: 50, 4: 130, 5: 260 };
 
 const CONFIG = {
-  gameId: "whacky-slot-frontend",
-  title: "Whacky Slot",
+  gameId: "whacky-game-frontend",
+  title: "Whacky Game",
   subtitle: "Frontend-owned puzzle slot engine",
   layout: {
     reels: 5,
