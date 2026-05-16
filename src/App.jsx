@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchWallet, settleWallet } from "./api";
+import { trackEvent } from "./analytics";
 import { createGameSession, getGameConfig, runGameFeature, runGameSpin } from "./mockGame";
 
 const GREEK_IMAGE_ASSETS = [
@@ -80,6 +81,64 @@ const MOBILE_MEDIA_QUERY = "(max-width: 760px)";
 const ALL_IMAGE_ASSETS = Array.from(
   new Set([...GREEK_IMAGE_ASSETS, ...LOONY_IMAGE_ASSETS, ...NETWORK_IMAGE_ASSETS, ...DISNEY_IMAGE_ASSETS]),
 );
+
+const SITE_MAP_ITEMS = [
+  {
+    title: "Home",
+    description: "Landing view with the title, balance, and the active play area.",
+  },
+  {
+    title: "Puzzle Grid",
+    description: "Main 4x4 board where the family matches, free spins, and bonus triggers happen.",
+  },
+  {
+    title: "Action Bar",
+    description: "Play button, balance snapshot, and the quick way to open the help modal.",
+  },
+  {
+    title: "Help Center",
+    description: "Guide, FAQ, site map, rules, puzzle families, and special-event explanations.",
+  },
+  {
+    title: "Bonus Prompts",
+    description: "Manual choice overlays for bonus round and mega bonus round spin modes.",
+  },
+];
+
+const GUIDE_STEPS = [
+  "Press Play to spend 100 coins and resolve the next 4x4 board.",
+  "Match families on paylines to earn regular payouts while watching for feature triggers.",
+  "Complete a full same-family row to unlock free spins that cost 0 coins.",
+  "Trigger a bonus round or mega bonus round, then choose 200 or 300 before each feature spin.",
+  "Watch the highlighted tiles and win banners to understand why a win or feature triggered.",
+];
+
+const FAQ_ITEMS = [
+  {
+    question: "How much does a normal spin cost?",
+    answer: "A normal spin costs 100 fake coins. Free spins cost 0 coins once they are unlocked.",
+  },
+  {
+    question: "How do I trigger free spins?",
+    answer: "Any full horizontal row from the same family unlocks the configured free-spin feature.",
+  },
+  {
+    question: "How do I trigger a bonus round?",
+    answer: "A same-family row or column plus at least five visible tiles from that family starts the bonus round.",
+  },
+  {
+    question: "How do I trigger a mega bonus round?",
+    answer: "If all 16 tiles on the board belong to the same family, the mega bonus round starts.",
+  },
+  {
+    question: "What does the 200 or 300 choice mean?",
+    answer: "That choice changes the bonus-spin reward mode, and the bonus or mega-bonus multiplier is stacked on top.",
+  },
+  {
+    question: "Why do wins still feel possible if the game has an edge?",
+    answer: "The stored RTP, hit-frequency, and volatility settings are tuned so wins stay visible while losses still dominate over time.",
+  },
+];
 
 function randomItem(items) {
   return items[Math.floor(Math.random() * items.length)];
@@ -452,6 +511,9 @@ export default function App() {
 
     setError("");
     setIsSpinning(true);
+    trackEvent("spin_started", {
+      mode: isManualFreeSpin ? "free_spin" : "base_spin",
+    });
 
     const startTime = Date.now();
 
@@ -485,6 +547,10 @@ export default function App() {
 
     setError("");
     setIsFeatureRunning(true);
+    trackEvent("feature_spin_selected", {
+      feature_type: specialState?.type ?? "unknown",
+      stake_choice: stakeChoice,
+    });
 
     try {
       const payload = runGameFeature(gameState, board, stakeChoice);
@@ -715,9 +781,12 @@ export default function App() {
               <button
                 type="button"
                 className="mode-button compact secondary-button"
-                onClick={() => setIsInfoOpen(true)}
+                onClick={() => {
+                  trackEvent("help_opened", { source: "desktop_controls" });
+                  setIsInfoOpen(true);
+                }}
               >
-                Info
+                Help
               </button>
             </div>
           ) : null}
@@ -737,9 +806,12 @@ export default function App() {
           <button
             type="button"
             className="mode-button compact secondary-button"
-            onClick={() => setIsInfoOpen(true)}
+            onClick={() => {
+              trackEvent("help_opened", { source: "mobile_action_bar" });
+              setIsInfoOpen(true);
+            }}
           >
-            Info
+            Help
           </button>
         </div>
       ) : null}
@@ -775,6 +847,15 @@ export default function App() {
               </section>
 
               <section className="info-section">
+                <h3>Quick Guide</h3>
+                <ol className="guide-list">
+                  {GUIDE_STEPS.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
+              </section>
+
+              <section className="info-section">
                 <h3>Special Events</h3>
                 <ul>
                   <li>
@@ -796,6 +877,30 @@ export default function App() {
                     </li>
                   ))}
                 </ul>
+              </section>
+
+              <section className="info-section info-section-wide">
+                <h3>Site Map</h3>
+                <div className="family-grid">
+                  {SITE_MAP_ITEMS.map((item) => (
+                    <article className="family-card" key={item.title}>
+                      <h4>{item.title}</h4>
+                      <p>{item.description}</p>
+                    </article>
+                  ))}
+                </div>
+              </section>
+
+              <section className="info-section info-section-wide">
+                <h3>FAQs</h3>
+                <div className="faq-grid">
+                  {FAQ_ITEMS.map((item) => (
+                    <article className="family-card" key={item.question}>
+                      <h4>{item.question}</h4>
+                      <p>{item.answer}</p>
+                    </article>
+                  ))}
+                </div>
               </section>
 
               <section className="info-section info-section-wide">

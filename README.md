@@ -52,6 +52,18 @@ npm run dev
 
 The frontend uses the Vite proxy and calls the backend through `/api/*` for wallet/account state only.
 
+## Google Analytics
+
+Google Analytics support is optional and stays disabled until a measurement ID is provided.
+
+Create a local `.env` file with:
+
+```bash
+VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+```
+
+When `VITE_GA_MEASUREMENT_ID` is set, the app loads `gtag.js`, sends the default page view, and tracks key gameplay/help interactions.
+
 ## Live flow
 
 - The app starts directly in the live frontend-owned gameplay flow

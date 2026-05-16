@@ -1417,6 +1417,17 @@ button {
   line-height: 1.6;
 }
 
+.guide-list {
+  margin: 0;
+  padding-left: 22px;
+  color: #dbe7fb;
+  line-height: 1.65;
+}
+
+.guide-list li + li {
+  margin-top: 10px;
+}
+
 .info-section-wide {
   grid-column: 1 / -1;
 }
@@ -1424,6 +1435,12 @@ button {
 .family-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+}
+
+.faq-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 14px;
 }
 
