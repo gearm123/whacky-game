@@ -958,9 +958,10 @@ button {
 .symbol-tile-art {
   position: relative;
   display: grid;
+  place-items: center;
   min-height: 0;
   aspect-ratio: 1 / 1;
-  padding: 0;
+  padding: 6px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   background:
@@ -971,6 +972,15 @@ button {
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.04),
     0 10px 22px rgba(0, 0, 0, 0.18);
+}
+
+.symbol-tile-art::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02) 36%, transparent 62%);
+  pointer-events: none;
 }
 
 .symbol-tile-art .symbol-label,
@@ -1011,7 +1021,7 @@ button {
   min-height: 0;
   max-height: none;
   margin: 0;
-  border-radius: inherit;
+  border-radius: 12px;
   object-fit: cover;
   filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.22));
 }

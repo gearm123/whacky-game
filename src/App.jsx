@@ -976,7 +976,7 @@ export default function App() {
                       return (
                         <article
                           key={`${columnIndex}-${rowIndex}-${symbolId}`}
-                          className={`symbol-tile ${isArtworkTile ? "symbol-tile-art" : symbol?.accent ?? ""} ${
+                          className={`symbol-tile ${symbol?.accent ?? ""} ${isArtworkTile ? "symbol-tile-art" : ""} ${
                             winningTileKeys.includes(`${columnIndex}-${rowIndex}`) ? "symbol-tile-winning" : ""
                           }`}
                           title={symbol?.label ?? symbolId}
