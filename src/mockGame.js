@@ -139,11 +139,11 @@ const CONFIG = {
     paylines: PAYLINES,
   },
   economics: {
-    spinCost: 100,
-    targetRtp: 0.94,
-    houseEdge: 0.06,
-    hitFrequencyRange: [0.3, 0.42],
-    configuredHitFrequency: 0.36,
+    spinCost: 200,
+    targetRtp: 0.85,
+    houseEdge: 0.15,
+    hitFrequencyRange: [0.22, 0.35],
+    configuredHitFrequency: 0.28,
     volatility: "medium-high",
   },
   features: {
@@ -738,15 +738,15 @@ export function runGameSpin(currentState) {
   state.totalSpins += 1;
 
   const outcomeType = weightedPick([
-    { type: "lose", weight: 57 },
-    { type: "greekWin", weight: 10 },
-    { type: "mysteryWin", weight: 8 },
-    { type: "slapstickWin", weight: 7 },
-    { type: "disneyWin", weight: 6 },
-    { type: "pixarWin", weight: 6 },
-    { type: "freeSpins", weight: 4 },
-    { type: "bonusRound", weight: 0.8 },
-    { type: "megaBonusRound", weight: 0.2 },
+    { type: "lose", weight: 58.2 },
+    { type: "greekWin", weight: 8 },
+    { type: "mysteryWin", weight: 6 },
+    { type: "slapstickWin", weight: 5 },
+    { type: "disneyWin", weight: 4.5 },
+    { type: "pixarWin", weight: 4.5 },
+    { type: "freeSpins", weight: 4.9 },
+    { type: "bonusRound", weight: 1.75 },
+    { type: "megaBonusRound", weight: 0.52 },
   ]);
 
   let boardPayload;
@@ -856,13 +856,13 @@ export function runGameFeature(currentState, currentBoard, stakeChoice = null) {
 
   if (activeFeature.type === "free_spins") {
     const boardPayload = weightedPick([
-      { type: "lose", weight: 49 },
+      { type: "lose", weight: 46.8 },
       { type: "greekWin", weight: 11 },
       { type: "mysteryWin", weight: 10 },
       { type: "slapstickWin", weight: 9 },
       { type: "disneyWin", weight: 9 },
       { type: "pixarWin", weight: 10 },
-      { type: "retrigger", weight: 2 },
+      { type: "retrigger", weight: 2.5 },
     ]);
 
     let resultPayload;
@@ -941,7 +941,7 @@ export function runGameFeature(currentState, currentBoard, stakeChoice = null) {
   state.totalPaid += resolvedStakeChoice;
 
   const roundType = weightedPick([
-    { type: "lose", weight: 46 },
+    { type: "lose", weight: 44.2 },
     { type: "greekWin", weight: 11 },
     { type: "mysteryWin", weight: 10 },
     { type: "slapstickWin", weight: 10 },

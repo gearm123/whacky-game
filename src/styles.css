@@ -1191,6 +1191,49 @@ button {
   margin: 0;
 }
 
+.refill-panel {
+  margin-top: 16px;
+  border-radius: 20px;
+  padding: 16px 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: center;
+}
+
+.refill-panel strong {
+  display: block;
+  font-size: 1.02rem;
+}
+
+.refill-copy {
+  margin: 8px 0 0;
+  color: #d5def1;
+  line-height: 1.5;
+}
+
+.refill-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.refill-request-tag {
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #bfe3ff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.refill-error {
+  margin-top: 10px !important;
+}
+
 .result-strip p,
 .bonus-copy {
   margin: 0;

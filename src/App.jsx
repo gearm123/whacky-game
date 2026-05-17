@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchWallet, settleWallet } from "./api";
+import {
+  REFILL_AMOUNT,
+  applyApprovedRefill,
+  claimStoredRefillRequest,
+  createRefillRequest,
+  fetchStoredRefillRequestStatus,
+  fetchWallet,
+  getGuestId,
+  getStoredRefillRequest,
+  settleWallet,
+} from "./api";
 import { trackEvent } from "./analytics";
 import { createGameSession, getGameConfig, runGameFeature, runGameSpin } from "./mockGame";
 
@@ -139,7 +149,7 @@ const SITE_MAP_ITEMS = [
 ];
 
 const GUIDE_STEPS = [
-  "Press Play to spend 100 coins and resolve the next 4x4 board.",
+  "Press Play to spend 200 coins and resolve the next 4x4 board.",
   "Match families on paylines to earn regular payouts while watching for feature triggers.",
   "Complete a full same-family row to unlock free spins that cost 0 coins.",
   "Trigger a bonus round or mega bonus round, then choose 200 or 300 once to lock that mode for the feature.",
@@ -149,7 +159,7 @@ const GUIDE_STEPS = [
 const FAQ_ITEMS = [
   {
     question: "How much does a normal spin cost?",
-    answer: "A normal spin costs 100 fake coins. Free spins cost 0 coins once they are unlocked.",
+    answer: "A normal spin costs 200 fake coins. Free spins cost 0 coins once they are unlocked.",
   },
   {
     question: "How do I trigger free spins?",
@@ -442,6 +452,10 @@ export default function App() {
   const [error, setError] = useState("");
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [winningTileKeys, setWinningTileKeys] = useState([]);
+  const [refillRequest, setRefillRequest] = useState(() => getStoredRefillRequest());
+  const [isRequestingRefill, setIsRequestingRefill] = useState(false);
+  const [isApplyingRefill, setIsApplyingRefill] = useState(false);
+  const [refillError, setRefillError] = useState("");
   const [assetLoadState, setAssetLoadState] = useState({
     loaded: 0,
     total: ALL_IMAGE_ASSETS.length,
@@ -484,6 +498,15 @@ export default function App() {
   const overlayTheme = uiState?.overlayTheme ?? "greek";
   const winBannerLabel = uiState?.winBannerLabel ?? (hasWin ? "WIN" : "READY");
   const displayedSpinCost = isManualFreeSpin ? 0 : spinCost;
+  const bonusStakeOptions = specialState?.availableStakeOptions ?? [];
+  const lowestBonusStake = bonusStakeOptions.length > 0 ? Math.min(...bonusStakeOptions) : spinCost;
+  const refillThreshold = isLockedBonusFeature
+    ? Number(specialState?.selectedStakeChoice ?? lowestBonusStake)
+    : isManualBonusFeature
+      ? lowestBonusStake
+      : spinCost;
+  const needsRefill = Number(gameState?.balance ?? 0) < refillThreshold;
+  const showRefillPanel = isHomePage && (needsRefill || Boolean(refillRequest));
   const bonusRoundCount =
     specialState?.type === "mega_bonus_round"
       ? config?.features?.megaBonusSpins ?? 0
@@ -710,6 +733,131 @@ export default function App() {
 
     return () => window.clearTimeout(timeoutId);
   }, [highlightedTiles, isFeatureRunning, isSpinning]);
+
+  useEffect(() => {
+    if (!refillRequest?.id || refillRequest.status !== "pending") {
+      return undefined;
+    }
+
+    let isCancelled = false;
+
+    const refreshRefillRequest = async () => {
+      try {
+        const nextRequest = await fetchStoredRefillRequestStatus();
+        if (!isCancelled) {
+          setRefillRequest(nextRequest);
+          setRefillError("");
+        }
+      } catch (requestError) {
+        if (!isCancelled) {
+          setRefillError(
+            requestError instanceof Error ? requestError.message : "Could not refresh the refill request status.",
+          );
+        }
+      }
+    };
+
+    refreshRefillRequest();
+    const intervalId = window.setInterval(refreshRefillRequest, 4000);
+
+    return () => {
+      isCancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [refillRequest?.id, refillRequest?.status]);
+
+  useEffect(() => {
+    if (!refillRequest?.id || refillRequest.status !== "approved" || isApplyingRefill) {
+      return undefined;
+    }
+
+    let isCancelled = false;
+
+    const claimAndApplyRefill = async () => {
+      setIsApplyingRefill(true);
+
+      try {
+        const approvedRequest = await claimStoredRefillRequest();
+        if (!approvedRequest) {
+          return;
+        }
+
+        const walletPayload = await applyApprovedRefill(approvedRequest.amount);
+        if (isCancelled) {
+          return;
+        }
+
+        setRefillRequest(null);
+        setRefillError("");
+        setGameState((currentState) =>
+          currentState
+            ? {
+                ...currentState,
+                balance: walletPayload.balance,
+              }
+            : currentState,
+        );
+        setUiState((currentState) =>
+          currentState
+            ? {
+                ...currentState,
+                resultMessage: `${formatCoins(approvedRequest.amount)} coins added to your guest wallet.`,
+              }
+            : currentState,
+        );
+        trackEvent("refill_applied", {
+          guest_id: getGuestId(),
+          request_id: approvedRequest.id,
+          amount: approvedRequest.amount,
+        });
+      } catch (requestError) {
+        if (!isCancelled) {
+          setRefillError(requestError instanceof Error ? requestError.message : "Could not apply the approved refill.");
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsApplyingRefill(false);
+        }
+      }
+    };
+
+    claimAndApplyRefill();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isApplyingRefill, refillRequest]);
+
+  async function handleRefillRequest() {
+    if (isRequestingRefill || isApplyingRefill) {
+      return;
+    }
+
+    setRefillError("");
+    setIsRequestingRefill(true);
+
+    try {
+      const nextRequest = await createRefillRequest();
+      setRefillRequest(nextRequest);
+      setUiState((currentState) =>
+        currentState
+          ? {
+              ...currentState,
+              resultMessage: "Top-up request sent. Waiting for approval.",
+            }
+          : currentState,
+      );
+      trackEvent("refill_requested", {
+        guest_id: getGuestId(),
+        request_id: nextRequest.id,
+        amount: nextRequest.amount,
+      });
+    } catch (requestError) {
+      setRefillError(requestError instanceof Error ? requestError.message : "Could not send the top-up request.");
+    } finally {
+      setIsRequestingRefill(false);
+    }
+  }
 
   async function handleSpin() {
     const isBlockedByFeature = specialState?.active && specialState.type !== "free_spins" && !isLockedBonusFeature;
@@ -1033,12 +1181,36 @@ export default function App() {
               </div>
             ) : null}
 
-            {isManualFreeSpin ? (
-              <div className="feature-runner free-spin-banner">
-                <div className="feature-runner-pill">Free Spins Ready</div>
-                <div className="feature-runner-copy">
-                  A full same-family row unlocked free spins. Press Play to use the next free spin at 0 coins.
+            {showRefillPanel ? (
+              <div className="refill-panel">
+                <strong>Need more coins?</strong>
+                <p className="refill-copy">
+                  {refillRequest?.status === "pending"
+                    ? "Your top-up request is pending approval in the backend admin page."
+                    : refillRequest?.status === "approved" || isApplyingRefill
+                      ? "Approval received. Adding coins to this browser now."
+                      : `Request another ${formatCoins(REFILL_AMOUNT)} coins for this guest browser.`}
+                </p>
+                <div className="refill-actions">
+                  <button
+                    type="button"
+                    className="mode-button compact secondary-button"
+                    onClick={handleRefillRequest}
+                    disabled={isRequestingRefill || isApplyingRefill || refillRequest?.status === "pending"}
+                  >
+                    {isApplyingRefill
+                      ? "Applying..."
+                      : isRequestingRefill
+                        ? "Sending..."
+                        : refillRequest?.status === "pending"
+                          ? "Request Sent"
+                          : `Request ${formatCoins(REFILL_AMOUNT)} Coins`}
+                  </button>
+                  {refillRequest?.id ? (
+                    <span className="refill-request-tag">Request {refillRequest.id.slice(-8)}</span>
+                  ) : null}
                 </div>
+                {refillError ? <p className="error-text refill-error">{refillError}</p> : null}
               </div>
             ) : null}
 
