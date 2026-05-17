@@ -710,7 +710,7 @@ function createInitialPayload(initialBalance = STARTING_STATE.balance) {
       state,
       { totalWin: 0, lineWins: [] },
       events,
-      "Frontend gameplay is active. Spin to resolve the next board and event sequence.",
+      "",
     ),
   };
 }

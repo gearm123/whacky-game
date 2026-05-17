@@ -1006,10 +1006,12 @@ export default function App() {
               ) : null}
             </div>
 
-            <div className="minimal-status">
-              <p>{uiState?.resultMessage ?? "Waiting for state..."}</p>
-              {error ? <p className="error-text">{error}</p> : null}
-            </div>
+            {uiState?.resultMessage || error ? (
+              <div className="minimal-status">
+                {uiState?.resultMessage ? <p>{uiState.resultMessage}</p> : null}
+                {error ? <p className="error-text">{error}</p> : null}
+              </div>
+            ) : null}
 
             {isManualFreeSpin ? (
               <div className="feature-runner free-spin-banner">
