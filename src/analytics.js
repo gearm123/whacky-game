@@ -3,11 +3,16 @@ const MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID?.trim();
 let initialized = false;
 
 function hasAnalytics() {
-  return typeof window !== "undefined" && Boolean(MEASUREMENT_ID);
+  return typeof window !== "undefined" && (Boolean(MEASUREMENT_ID) || typeof window.gtag === "function");
 }
 
 export function initAnalytics() {
   if (!hasAnalytics() || initialized) {
+    return;
+  }
+
+  if (typeof window.gtag === "function") {
+    initialized = true;
     return;
   }
 
