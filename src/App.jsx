@@ -54,7 +54,7 @@ const DISNEY_IMAGE_ASSETS = [
   "/assets/disney/shrek.png",
   "/assets/disney/snow.png",
 ];
-const GEARM_SIGNATURE_ASSET = "/gearm-signature.svg";
+const GEARM_SIGNATURE_ASSET = "/assets/brand_logo.png";
 
 const PIXAR_IMAGE_ASSETS = [
   "/assets/pixar/buzz.png",
@@ -892,9 +892,9 @@ export default function App() {
             </div>
 
             <div className="topbar-actions">
-              <div className="topbar-dedication" aria-label="This website is dedicated to Sasithon Wangyangnok">
+              <div className="topbar-dedication" aria-label="This website is dedicated to Sasithon Wangyangnok heart">
                 <span className="topbar-dedication-intro">This website is dedicated to</span>
-                <strong translate="no">Sasithon Wangyangnok</strong>
+                <strong translate="no">Sasithon Wangyangnok ❤️</strong>
               </div>
               <div className="balance-chip">
                 <span>Balance</span>

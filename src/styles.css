@@ -651,9 +651,9 @@ button {
 
 .topbar-dedication {
   display: grid;
-  justify-items: end;
+  justify-items: center;
   gap: 4px;
-  text-align: right;
+  text-align: center;
   color: #dbe7fb;
 }
 
