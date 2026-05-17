@@ -305,30 +305,34 @@ function preloadImage(src) {
     const image = new Image();
     let finished = false;
 
-    const complete = () => {
+    const complete = (shouldCache = false) => {
       if (finished) {
         return;
       }
 
       finished = true;
-      PRELOADED_IMAGE_SOURCES.add(src);
+      if (shouldCache) {
+        PRELOADED_IMAGE_SOURCES.add(src);
+      }
       resolve();
     };
 
     image.onload = () => {
       if (typeof image.decode === "function") {
-        image.decode().catch(() => undefined).finally(complete);
+        image.decode()
+          .then(() => complete(true))
+          .catch(() => complete(false));
         return;
       }
 
-      complete();
+      complete(true);
     };
 
-    image.onerror = complete;
+    image.onerror = () => complete(false);
     image.src = src;
 
     if (image.complete) {
-      complete();
+      complete(true);
     }
   });
 }
@@ -1646,6 +1650,10 @@ export default function App() {
 
 function AssetImage({ src, alt, className, fetchPriority = "auto" }) {
   const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
 
   if (!src || failed) {
     return null;
