@@ -413,7 +413,6 @@ function buildWinningTileKeys(board, paylines, uiState) {
 }
 
 function collectBoardImageSources(board, symbolMap) {
-  const boardSeed = JSON.stringify(board);
   const imageSources = new Set();
 
   board.forEach((column, columnIndex) => {
@@ -427,7 +426,7 @@ function collectBoardImageSources(board, symbolMap) {
 
       const imageSource = pickSeededAsset(
         assetPool,
-        `${symbolId}-${symbol?.themeGroup ?? symbol?.type ?? "tile"}-${columnIndex}-${rowIndex}-${boardSeed}`,
+        `${symbolId}-${symbol?.themeGroup ?? symbol?.type ?? "tile"}-${columnIndex}-${rowIndex}`,
       );
 
       if (imageSource) {
@@ -497,6 +496,8 @@ export default function App() {
     : [PAGE_METADATA.home, currentPageMeta];
   const secondaryPageButtons = [PAGE_METADATA.guide, PAGE_METADATA.faq];
   const overlayTheme = uiState?.overlayTheme ?? "greek";
+  const spinSettleDelayMs = isMobileLayout ? 850 : 1400;
+  const featureSettleDelayMs = isMobileLayout ? 650 : 950;
   const displayedSpinCost = isManualFreeSpin ? 0 : spinCost;
   const restingWinBannerLabel =
     specialState?.type === "free_spins"
@@ -550,7 +551,6 @@ export default function App() {
         : "Play";
 
   const boardImages = useMemo(() => {
-    const boardSeed = JSON.stringify(board);
     const assignments = {};
 
     board.forEach((column, columnIndex) => {
@@ -564,7 +564,7 @@ export default function App() {
 
         assignments[`${columnIndex}-${rowIndex}`] = pickSeededAsset(
           assetPool,
-          `${symbolId}-${symbol?.themeGroup ?? symbol?.type ?? "tile"}-${columnIndex}-${rowIndex}-${boardSeed}`,
+          `${symbolId}-${symbol?.themeGroup ?? symbol?.type ?? "tile"}-${columnIndex}-${rowIndex}`,
         );
       });
     });
@@ -921,7 +921,7 @@ export default function App() {
       const elapsed = Date.now() - startTime;
       await Promise.all([
         preloadAssets(nextBoardImageSources, () => undefined),
-        wait(Math.max(0, 1400 - elapsed)),
+        wait(Math.max(0, spinSettleDelayMs - elapsed)),
       ]);
 
       setSessionId(payload.sessionId);
@@ -959,7 +959,7 @@ export default function App() {
       });
       await Promise.all([
         preloadAssets(nextBoardImageSources, () => undefined),
-        wait(950),
+        wait(featureSettleDelayMs),
       ]);
 
       setSessionId(payload.sessionId);
