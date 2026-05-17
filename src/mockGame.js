@@ -80,6 +80,22 @@ const SYMBOLS = [
     accent: "symbol-indigo",
   },
   {
+    id: "SPACE_RANGER_SPARK",
+    label: "Space Ranger Spark",
+    tag: "Pixar",
+    type: "regular",
+    themeGroup: "PIXAR",
+    accent: "symbol-aqua",
+  },
+  {
+    id: "TOY_CHEST_TRAIL",
+    label: "Toy Chest Trail",
+    tag: "Pixar",
+    type: "regular",
+    themeGroup: "PIXAR",
+    accent: "symbol-ruby",
+  },
+  {
     id: "WILD",
     label: "Mash-Up Mask",
     tag: "Wild",
@@ -107,6 +123,7 @@ const THEME_PAYOUTS = {
   MYSTERY: { label: "Network", payouts: { 3: 30, 4: 96, 5: 275 } },
   SLAPSTICK: { label: "Loony", payouts: { 3: 24, 4: 82, 5: 230 } },
   DISNEY: { label: "Disney", payouts: { 3: 28, 4: 92, 5: 265 } },
+  PIXAR: { label: "Pixar", payouts: { 3: 29, 4: 94, 5: 270 } },
 };
 
 const WILD_PAYOUTS = { 3: 60, 4: 210, 5: 700 };
@@ -246,7 +263,7 @@ function createEvent(type, summary, payload = {}) {
 }
 
 function pickRandomThemeGroup() {
-  return randomItem(["GREEK", "MYSTERY", "SLAPSTICK", "DISNEY"]);
+  return randomItem(["GREEK", "MYSTERY", "SLAPSTICK", "DISNEY", "PIXAR"]);
 }
 
 function getThemeFamilyForSymbols(symbolIds, symbolMap) {
@@ -340,6 +357,7 @@ function evaluateBoard(board, multiplier) {
     MYSTERY: [],
     SLAPSTICK: [],
     DISNEY: [],
+    PIXAR: [],
   };
 
   board.forEach((column, columnIndex) => {
@@ -720,11 +738,12 @@ export function runGameSpin(currentState) {
   state.totalSpins += 1;
 
   const outcomeType = weightedPick([
-    { type: "lose", weight: 61 },
+    { type: "lose", weight: 57 },
     { type: "greekWin", weight: 10 },
-    { type: "mysteryWin", weight: 9 },
-    { type: "slapstickWin", weight: 8 },
-    { type: "disneyWin", weight: 7 },
+    { type: "mysteryWin", weight: 8 },
+    { type: "slapstickWin", weight: 7 },
+    { type: "disneyWin", weight: 6 },
+    { type: "pixarWin", weight: 6 },
     { type: "freeSpins", weight: 4 },
     { type: "bonusRound", weight: 0.8 },
     { type: "megaBonusRound", weight: 0.2 },
@@ -745,6 +764,8 @@ export function runGameSpin(currentState) {
     boardPayload = createThemeWinBoard("MYSTERY", randomItem([3, 4, 4]), 1);
   } else if (outcomeType === "disneyWin") {
     boardPayload = createThemeWinBoard("DISNEY", randomItem([3, 3, 4]), 1);
+  } else if (outcomeType === "pixarWin") {
+    boardPayload = createThemeWinBoard("PIXAR", randomItem([3, 3, 4]), 1);
   } else {
     boardPayload = createThemeWinBoard("SLAPSTICK", randomItem([3, 3, 4]), 1);
   }
@@ -835,11 +856,12 @@ export function runGameFeature(currentState, currentBoard, stakeChoice = null) {
 
   if (activeFeature.type === "free_spins") {
     const boardPayload = weightedPick([
-      { type: "lose", weight: 54 },
-      { type: "greekWin", weight: 12 },
-      { type: "mysteryWin", weight: 11 },
-      { type: "slapstickWin", weight: 10 },
-      { type: "disneyWin", weight: 11 },
+      { type: "lose", weight: 49 },
+      { type: "greekWin", weight: 11 },
+      { type: "mysteryWin", weight: 10 },
+      { type: "slapstickWin", weight: 9 },
+      { type: "disneyWin", weight: 9 },
+      { type: "pixarWin", weight: 10 },
       { type: "retrigger", weight: 2 },
     ]);
 
@@ -854,6 +876,8 @@ export function runGameFeature(currentState, currentBoard, stakeChoice = null) {
       resultPayload = createThemeWinBoard("MYSTERY", randomItem([3, 4, 4]), CONFIG.features.freeSpinMultiplier);
     } else if (boardPayload === "disneyWin") {
       resultPayload = createThemeWinBoard("DISNEY", randomItem([3, 4, 4]), CONFIG.features.freeSpinMultiplier);
+    } else if (boardPayload === "pixarWin") {
+      resultPayload = createThemeWinBoard("PIXAR", randomItem([3, 4, 4]), CONFIG.features.freeSpinMultiplier);
     } else {
       resultPayload = createThemeWinBoard("SLAPSTICK", randomItem([3, 4, 4]), CONFIG.features.freeSpinMultiplier);
     }
@@ -918,10 +942,11 @@ export function runGameFeature(currentState, currentBoard, stakeChoice = null) {
 
   const roundType = weightedPick([
     { type: "lose", weight: 46 },
-    { type: "greekWin", weight: 14 },
-    { type: "mysteryWin", weight: 14 },
-    { type: "slapstickWin", weight: 13 },
-    { type: "disneyWin", weight: 13 },
+    { type: "greekWin", weight: 11 },
+    { type: "mysteryWin", weight: 10 },
+    { type: "slapstickWin", weight: 10 },
+    { type: "disneyWin", weight: 10 },
+    { type: "pixarWin", weight: 13 },
   ]);
 
   let resultPayload;
@@ -934,6 +959,8 @@ export function runGameFeature(currentState, currentBoard, stakeChoice = null) {
     resultPayload = createThemeWinBoard("MYSTERY", randomItem([3, 4, 4]), combinedMultiplier);
   } else if (roundType === "disneyWin") {
     resultPayload = createThemeWinBoard("DISNEY", randomItem([3, 4, 4]), combinedMultiplier);
+  } else if (roundType === "pixarWin") {
+    resultPayload = createThemeWinBoard("PIXAR", randomItem([3, 4, 4]), combinedMultiplier);
   } else {
     resultPayload = createThemeWinBoard("SLAPSTICK", randomItem([3, 4, 4]), combinedMultiplier);
   }

@@ -55,6 +55,19 @@ const DISNEY_IMAGE_ASSETS = [
   "/assets/disney/snow.png",
 ];
 
+const PIXAR_IMAGE_ASSETS = [
+  "/assets/pixar/buzz.png",
+  "/assets/pixar/carl.png",
+  "/assets/pixar/edna.png",
+  "/assets/pixar/eve.png",
+  "/assets/pixar/mike.png",
+  "/assets/pixar/mqueen.png",
+  "/assets/pixar/super.png",
+  "/assets/pixar/toy_dog.png",
+  "/assets/pixar/walle.png",
+  "/assets/pixar/woode.png",
+];
+
 const GREEK_BACKGROUND_CLASSES = [
   "backdrop-figure backdrop-greek backdrop-greek-1",
   "backdrop-figure backdrop-greek backdrop-greek-2",
@@ -84,10 +97,21 @@ const DISNEY_BACKGROUND_CLASSES = [
   "backdrop-figure backdrop-disney backdrop-disney-4",
 ];
 
-const FAMILY_ORDER = ["GREEK", "SLAPSTICK", "MYSTERY", "DISNEY"];
+const PIXAR_BACKGROUND_CLASSES = [
+  "backdrop-figure backdrop-pixar backdrop-pixar-1",
+  "backdrop-figure backdrop-pixar backdrop-pixar-2",
+];
+
+const FAMILY_ORDER = ["GREEK", "SLAPSTICK", "MYSTERY", "DISNEY", "PIXAR"];
 const MOBILE_MEDIA_QUERY = "(max-width: 760px)";
 const ALL_IMAGE_ASSETS = Array.from(
-  new Set([...GREEK_IMAGE_ASSETS, ...LOONY_IMAGE_ASSETS, ...NETWORK_IMAGE_ASSETS, ...DISNEY_IMAGE_ASSETS]),
+  new Set([
+    ...GREEK_IMAGE_ASSETS,
+    ...LOONY_IMAGE_ASSETS,
+    ...NETWORK_IMAGE_ASSETS,
+    ...DISNEY_IMAGE_ASSETS,
+    ...PIXAR_IMAGE_ASSETS,
+  ]),
 );
 
 const SITE_MAP_ITEMS = [
@@ -153,7 +177,6 @@ const PAGE_METADATA = {
   home: {
     id: "home",
     label: "Home",
-    navLabel: "Play",
     path: "/",
     title: "Whacky Game",
   },
@@ -323,6 +346,10 @@ function getSymbolAssetPool(symbol) {
     return DISNEY_IMAGE_ASSETS;
   }
 
+  if (symbol.themeGroup === "PIXAR") {
+    return PIXAR_IMAGE_ASSETS;
+  }
+
   return [];
 }
 
@@ -447,6 +474,7 @@ export default function App() {
   const breadcrumbItems = currentPage === "home"
     ? [PAGE_METADATA.home]
     : [PAGE_METADATA.home, currentPageMeta];
+  const secondaryPageButtons = [PAGE_METADATA.guide, PAGE_METADATA.faq];
   const overlayTheme = uiState?.overlayTheme ?? "greek";
   const winBannerLabel = uiState?.winBannerLabel ?? (hasWin ? "WIN" : "READY");
   const displayedSpinCost = isManualFreeSpin ? 0 : spinCost;
@@ -504,6 +532,10 @@ export default function App() {
   );
   const backgroundDisneyImages = useMemo(
     () => deterministicShuffle(DISNEY_IMAGE_ASSETS, "disney-background"),
+    [],
+  );
+  const backgroundPixarImages = useMemo(
+    () => deterministicShuffle(PIXAR_IMAGE_ASSETS, "pixar-background"),
     [],
   );
   const highlightedTiles = useMemo(
@@ -820,6 +852,17 @@ export default function App() {
             fetchPriority="low"
           />
         ))}
+        {backgroundPixarImages
+          .slice(0, isMobileLayout ? 1 : PIXAR_BACKGROUND_CLASSES.length)
+          .map((src, index) => (
+          <AssetImage
+            key={`${src}-${index}`}
+            src={src}
+            alt=""
+            className={PIXAR_BACKGROUND_CLASSES[index]}
+            fetchPriority="low"
+          />
+        ))}
       </div>
       <div className="page-noise" />
       <div className="coin-burst" aria-hidden="true">
@@ -843,20 +886,6 @@ export default function App() {
           </div>
         ) : null}
       </header>
-
-      <nav className={`page-nav ${isMobileLayout ? "page-nav-mobile" : ""}`} aria-label="Primary">
-        {Object.values(PAGE_METADATA).map((page) => (
-          <button
-            key={page.id}
-            type="button"
-            className={`mode-button compact page-nav-button ${currentPage === page.id ? "page-nav-button-active" : ""}`}
-            onClick={() => navigateToPage(page.id)}
-            aria-current={currentPage === page.id ? "page" : undefined}
-          >
-            {page.navLabel}
-          </button>
-        ))}
-      </nav>
 
       <nav className="breadcrumbs" aria-label="Breadcrumb">
         <ol className="breadcrumb-list">
@@ -974,6 +1003,19 @@ export default function App() {
                 </button>
               </div>
             ) : null}
+
+            <div className={`page-nav page-nav-bottom ${isMobileLayout ? "page-nav-mobile" : ""}`} aria-label="More pages">
+              {secondaryPageButtons.map((page) => (
+                <button
+                  key={page.id}
+                  type="button"
+                  className={`mode-button compact page-nav-button ${currentPage === page.id ? "page-nav-button-active" : ""}`}
+                  onClick={() => navigateToPage(page.id)}
+                >
+                  {page.navLabel}
+                </button>
+              ))}
+            </div>
           </section>
         ) : (
           <section className="panel content-page-panel">
@@ -1091,6 +1133,20 @@ export default function App() {
                   </section>
                 </>
               )}
+            </div>
+
+            <div className={`page-nav page-nav-bottom ${isMobileLayout ? "page-nav-mobile" : ""}`} aria-label="More pages">
+              {secondaryPageButtons.map((page) => (
+                <button
+                  key={page.id}
+                  type="button"
+                  className={`mode-button compact page-nav-button ${currentPage === page.id ? "page-nav-button-active" : ""}`}
+                  onClick={() => navigateToPage(page.id)}
+                  aria-current={currentPage === page.id ? "page" : undefined}
+                >
+                  {page.navLabel}
+                </button>
+              ))}
             </div>
           </section>
         )}

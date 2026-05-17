@@ -164,6 +164,12 @@ button {
   filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.22));
 }
 
+.backdrop-pixar {
+  opacity: 0.2;
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.24));
+}
+
 .coin-cluster,
 .cash-ribbon,
 .greek-arch,
@@ -203,6 +209,20 @@ button {
   bottom: 3%;
   max-height: 11vh;
   transform: rotate(7deg);
+}
+
+.backdrop-pixar-1 {
+  left: 3%;
+  top: 34%;
+  max-height: 12vh;
+  transform: rotate(-9deg);
+}
+
+.backdrop-pixar-2 {
+  right: 3%;
+  top: 34%;
+  max-height: 12vh;
+  transform: rotate(9deg);
 }
 
 .coin-cluster,
@@ -974,6 +994,14 @@ button {
   background: linear-gradient(180deg, rgba(135, 147, 255, 0.96), rgba(52, 60, 147, 0.98));
 }
 
+.symbol-aqua {
+  background: linear-gradient(180deg, rgba(116, 241, 255, 0.96), rgba(27, 118, 150, 0.98));
+}
+
+.symbol-ruby {
+  background: linear-gradient(180deg, rgba(255, 123, 154, 0.96), rgba(150, 35, 76, 0.98));
+}
+
 .symbol-wild {
   background: linear-gradient(180deg, rgba(255, 93, 185, 0.98), rgba(133, 33, 102, 0.98));
 }
@@ -1138,6 +1166,10 @@ button {
   justify-content: center;
   gap: 10px;
   margin-top: 12px;
+}
+
+.page-nav-bottom {
+  margin-top: 18px;
 }
 
 .page-nav .page-nav-button {
@@ -1852,7 +1884,9 @@ button {
   .backdrop-network-3,
   .backdrop-network-4,
   .backdrop-disney-3,
-  .backdrop-disney-4 {
+  .backdrop-disney-4,
+  .backdrop-pixar-1,
+  .backdrop-pixar-2 {
     display: none;
   }
 }
@@ -1994,7 +2028,9 @@ button {
   .backdrop-network-1,
   .backdrop-network-2,
   .backdrop-disney-1,
-  .backdrop-disney-2 {
+  .backdrop-disney-2,
+  .backdrop-pixar-1,
+  .backdrop-pixar-2 {
     max-height: 12vh;
   }
 
@@ -2112,6 +2148,10 @@ button {
   .layout-mobile .page-nav {
     margin-top: 10px;
     gap: 8px;
+  }
+
+  .layout-mobile .page-nav-bottom {
+    margin-top: 14px;
   }
 
   .layout-mobile .page-nav-button {
