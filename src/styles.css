@@ -47,12 +47,12 @@ button {
 
 .backdrop-figure {
   position: absolute;
-  opacity: 0.16;
+  opacity: 0.2;
   filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.25));
 }
 
 .backdrop-greek {
-  opacity: 0.15;
+  opacity: 0.18;
   mix-blend-mode: screen;
 }
 
@@ -77,7 +77,7 @@ button {
 }
 
 .backdrop-loony {
-  opacity: 0.2;
+  opacity: 0.22;
   mix-blend-mode: screen;
   filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.24));
 }
@@ -97,7 +97,7 @@ button {
 }
 
 .backdrop-network {
-  opacity: 0.16;
+  opacity: 0.18;
   mix-blend-mode: screen;
   filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.22));
 }
@@ -117,9 +117,23 @@ button {
 }
 
 .backdrop-disney {
-  opacity: 0.18;
+  opacity: 0.2;
   mix-blend-mode: screen;
   filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.22));
+}
+
+.coin-cluster,
+.cash-ribbon,
+.greek-arch,
+.sky-temple,
+.temple-ruins,
+.pillar-cluster,
+.sun-disk,
+.mount-olympus,
+.temple-silhouette,
+.laurel-ring,
+.coin-burst {
+  display: none;
 }
 
 .backdrop-disney-1 {

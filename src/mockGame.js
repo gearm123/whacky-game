@@ -608,6 +608,8 @@ function createUiState(state, result, events, resultMessage) {
             availableStakeOptions: CONFIG.features.bonusStakeOptions,
             choiceMultipliers: CONFIG.features.bonusStakeMultipliers,
             featureMultiplier: activeFeature.featureMultiplier,
+            lastStakeChoice: activeFeature.lastStakeChoice ?? null,
+            lastStakeMultiplier: activeFeature.lastStakeMultiplier ?? null,
             promptLabel: "Choose 200 or 300 for the next spin",
           }
         : null;
@@ -890,6 +892,12 @@ export function runGameFeature(currentState, currentBoard, stakeChoice = null) {
   if (!stakeMultiplier) {
     throw new Error("Choose 200 or 300 before starting the bonus spin.");
   }
+  if (state.balance < stakeChoice) {
+    throw new Error(`Not enough balance to use ${stakeChoice} mode for this bonus spin.`);
+  }
+
+  state.balance -= stakeChoice;
+  state.totalPaid += stakeChoice;
 
   const roundType = weightedPick([
     { type: "lose", weight: 46 },
@@ -921,6 +929,7 @@ export function runGameFeature(currentState, currentBoard, stakeChoice = null) {
   activeFeature.remaining -= 1;
   activeFeature.totalFeatureWin += result.totalWin;
   activeFeature.lastStakeChoice = stakeChoice;
+  activeFeature.lastStakeMultiplier = stakeMultiplier;
 
   const progressEventType = activeFeature.type === "mega_bonus_round" ? "mega_bonus_round_progress" : "bonus_round_progress";
   const completedEventType = activeFeature.type === "mega_bonus_round" ? "mega_bonus_round_completed" : "bonus_round_completed";
@@ -947,8 +956,8 @@ export function runGameFeature(currentState, currentBoard, stakeChoice = null) {
       result,
       events,
       result.totalWin > 0
-        ? `${featureLabel} spin paid ${result.totalWin} coins using ${stakeChoice} mode at x${activeFeature.featureMultiplier}.`
-        : `${featureLabel} spin used ${stakeChoice} mode and paid no coins.`,
+        ? `${featureLabel} spin used ${stakeChoice} coins and paid ${result.totalWin} coins with the selected bet multiplier plus x${activeFeature.featureMultiplier}.`
+        : `${featureLabel} spin used ${stakeChoice} coins with the selected bet multiplier plus x${activeFeature.featureMultiplier} and paid no coins.`,
     ),
   };
 }

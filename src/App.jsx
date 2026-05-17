@@ -303,6 +303,33 @@ function buildWinningTileKeys(board, paylines, uiState) {
   return keys;
 }
 
+function collectBoardImageSources(board, symbolMap) {
+  const boardSeed = JSON.stringify(board);
+  const imageSources = new Set();
+
+  board.forEach((column, columnIndex) => {
+    column.forEach((symbolId, rowIndex) => {
+      const symbol = symbolMap[symbolId];
+      const assetPool = getSymbolAssetPool(symbol);
+
+      if (assetPool.length === 0) {
+        return;
+      }
+
+      const imageSource = pickSeededAsset(
+        assetPool,
+        `${symbolId}-${symbol?.themeGroup ?? symbol?.type ?? "tile"}-${columnIndex}-${rowIndex}-${boardSeed}`,
+      );
+
+      if (imageSource) {
+        imageSources.add(imageSource);
+      }
+    });
+  });
+
+  return Array.from(imageSources);
+}
+
 export default function App() {
   const [config, setConfig] = useState(null);
   const [sessionId, setSessionId] = useState("");
@@ -342,6 +369,7 @@ export default function App() {
   const isManualFreeSpin = specialState?.type === "free_spins";
   const isManualBonusFeature =
     specialState?.type === "bonus_round" || specialState?.type === "mega_bonus_round";
+  const showBonusChoiceOverlay = isManualBonusFeature && !isFeatureRunning;
   const overlayTheme = uiState?.overlayTheme ?? "greek";
   const winBannerLabel = uiState?.winBannerLabel ?? (hasWin ? "WIN" : "READY");
   const displayedSpinCost = isManualFreeSpin ? 0 : spinCost;
@@ -519,6 +547,7 @@ export default function App() {
 
     try {
       const payload = isManualFreeSpin ? runGameFeature(gameState, board) : runGameSpin(gameState);
+      const nextBoardImageSources = collectBoardImageSources(payload.board, symbolMap);
       const walletPayload = await settleWallet({
         previousBalance: gameState.balance,
         nextBalance: payload.state.balance,
@@ -526,7 +555,10 @@ export default function App() {
         reason: payload.events?.[0]?.type ?? "spin_resolution",
       });
       const elapsed = Date.now() - startTime;
-      await wait(Math.max(0, 1100 - elapsed));
+      await Promise.all([
+        preloadAssets(nextBoardImageSources, () => undefined),
+        wait(Math.max(0, 1400 - elapsed)),
+      ]);
 
       setSessionId(payload.sessionId);
       setBoard(payload.board);
@@ -554,12 +586,17 @@ export default function App() {
 
     try {
       const payload = runGameFeature(gameState, board, stakeChoice);
+      const nextBoardImageSources = collectBoardImageSources(payload.board, symbolMap);
       const walletPayload = await settleWallet({
         previousBalance: gameState.balance,
         nextBalance: payload.state.balance,
         delta: payload.state.balance - gameState.balance,
         reason: payload.events?.[0]?.type ?? "feature_resolution",
       });
+      await Promise.all([
+        preloadAssets(nextBoardImageSources, () => undefined),
+        wait(950),
+      ]);
 
       setSessionId(payload.sessionId);
       setBoard(payload.board);
@@ -605,30 +642,6 @@ export default function App() {
       }`}
     >
       <div className="mythic-backdrop" aria-hidden="true">
-        <div className="sun-disk" />
-        <div className="mount-olympus" />
-        <div className="sky-temple sky-temple-left" />
-        <div className="sky-temple sky-temple-right" />
-        <div className="temple-silhouette" />
-        <div className="temple-ruins temple-ruins-left" />
-        <div className="temple-ruins temple-ruins-right" />
-        <div className="pillar-cluster pillar-cluster-left">
-          <span className="pillar" />
-          <span className="pillar short" />
-          <span className="pillar" />
-        </div>
-        <div className="pillar-cluster pillar-cluster-right">
-          <span className="pillar" />
-          <span className="pillar short" />
-          <span className="pillar" />
-        </div>
-        <div className="laurel-ring" />
-        <div className="coin-cluster coin-cluster-left" />
-        <div className="coin-cluster coin-cluster-right" />
-        <div className="cash-ribbon cash-ribbon-left" />
-        <div className="cash-ribbon cash-ribbon-right" />
-        <div className="greek-arch greek-arch-left" />
-        <div className="greek-arch greek-arch-right" />
         {backgroundGreekImages
           .slice(0, isMobileLayout ? 1 : GREEK_BACKGROUND_CLASSES.length)
           .map((src, index) => (
@@ -675,11 +688,6 @@ export default function App() {
         ))}
       </div>
       <div className="page-noise" />
-      <div className="coin-burst" aria-hidden="true">
-        {Array.from({ length: 12 }, (_, index) => (
-          <span key={index} className="coin-particle" />
-        ))}
-      </div>
 
       <header className={isMobileLayout ? "mobile-topbar" : "simple-topbar"}>
         <div className="brand-block">
@@ -945,7 +953,19 @@ export default function App() {
         </div>
       ) : null}
 
-      {isManualBonusFeature ? (
+      {isManualBonusFeature && isFeatureRunning ? (
+        <div className="feature-runner free-spin-banner">
+          <div className="feature-runner-pill">
+            {specialState?.type === "mega_bonus_round" ? "Mega Bonus Spin Running" : "Bonus Spin Running"}
+          </div>
+          <div className="feature-runner-copy">
+            Resolving the selected {specialState?.lastStakeChoice ?? "200/300"}-coin mode and applying the feature
+            multiplier now.
+          </div>
+        </div>
+      ) : null}
+
+      {showBonusChoiceOverlay ? (
         <div
           className={`bonus-overlay overlay-${overlayTheme} ${
             specialState?.type === "mega_bonus_round" || specialState?.type === "bonus_round"
@@ -974,6 +994,12 @@ export default function App() {
             </p>
             <p className="bonus-copy bonus-progress">{specialState?.progressLabel ?? specialState?.subtitle}</p>
             <p className="bonus-copy">{specialState?.subtitle}</p>
+            {specialState?.lastStakeChoice ? (
+              <p className="bonus-copy">
+                Last resolved spin used {formatCoins(specialState.lastStakeChoice)} coins at x
+                {specialState?.lastStakeMultiplier ?? 1} before the feature multiplier.
+              </p>
+            ) : null}
 
             <div className="bonus-event-banner">
               {specialState?.promptLabel ?? "Choose the stake mode for the next feature spin"}
@@ -985,7 +1011,7 @@ export default function App() {
                   type="button"
                   className="bonus-card bonus-choice-button"
                   onClick={() => handleFeatureChoice(stakeChoice)}
-                  disabled={isSpinning || isFeatureRunning}
+                  disabled={isSpinning || isFeatureRunning || gameState.balance < stakeChoice}
                 >
                   <span>{formatCoins(stakeChoice)} Mode</span>
                   <strong>x{specialState?.choiceMultipliers?.[stakeChoice] ?? 1}</strong>
@@ -1000,7 +1026,8 @@ export default function App() {
                 {specialState?.type === "mega_bonus_round" ? "10-spin mega bonus" : "5-spin bonus round"}
               </div>
               <div className="feature-runner-copy">
-                Your choice changes the payout mode for this spin only. The feature multiplier is applied after that.
+                Your choice changes the bet amount mode for this spin only, and the feature multiplier is applied on
+                top of that choice.
               </div>
             </div>
           </div>
