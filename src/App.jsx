@@ -369,7 +369,9 @@ export default function App() {
   const isManualFreeSpin = specialState?.type === "free_spins";
   const isManualBonusFeature =
     specialState?.type === "bonus_round" || specialState?.type === "mega_bonus_round";
-  const showBonusChoiceOverlay = isManualBonusFeature && !isFeatureRunning;
+  const hasLockedBonusStake = Boolean(specialState?.selectedStakeChoice);
+  const showBonusChoiceOverlay =
+    isManualBonusFeature && !hasLockedBonusStake && !isFeatureRunning;
   const overlayTheme = uiState?.overlayTheme ?? "greek";
   const winBannerLabel = uiState?.winBannerLabel ?? (hasWin ? "WIN" : "READY");
   const displayedSpinCost = isManualFreeSpin ? 0 : spinCost;
@@ -382,6 +384,10 @@ export default function App() {
     ? "Resolving..."
     : isFeatureRunning
       ? "Running Feature..."
+      : isManualBonusFeature && hasLockedBonusStake
+        ? specialState?.type === "mega_bonus_round"
+          ? "Play Mega Bonus Spin"
+          : "Play Bonus Spin"
       : isManualFreeSpin
         ? "Play Free Spin"
         : "Play";
@@ -532,7 +538,8 @@ export default function App() {
   }, [highlightedTiles, isFeatureRunning, isSpinning]);
 
   async function handleSpin() {
-    const isBlockedByFeature = specialState?.active && specialState.type !== "free_spins";
+    const isLockedBonusFeature = isManualBonusFeature && hasLockedBonusStake;
+    const isBlockedByFeature = specialState?.active && specialState.type !== "free_spins" && !isLockedBonusFeature;
     if (!config || !sessionId || !gameState || isSpinning || isFeatureRunning || isBlockedByFeature) {
       return;
     }
@@ -540,13 +547,20 @@ export default function App() {
     setError("");
     setIsSpinning(true);
     trackEvent("spin_started", {
-      mode: isManualFreeSpin ? "free_spin" : "base_spin",
+      mode: isManualFreeSpin
+        ? "free_spin"
+        : isLockedBonusFeature
+          ? specialState?.type ?? "bonus_feature"
+          : "base_spin",
     });
 
     const startTime = Date.now();
 
     try {
-      const payload = isManualFreeSpin ? runGameFeature(gameState, board) : runGameSpin(gameState);
+      const payload =
+        isManualFreeSpin || isLockedBonusFeature
+          ? runGameFeature(gameState, board)
+          : runGameSpin(gameState);
       const nextBoardImageSources = collectBoardImageSources(payload.board, symbolMap);
       const walletPayload = await settleWallet({
         previousBalance: gameState.balance,
@@ -959,8 +973,8 @@ export default function App() {
             {specialState?.type === "mega_bonus_round" ? "Mega Bonus Spin Running" : "Bonus Spin Running"}
           </div>
           <div className="feature-runner-copy">
-            Resolving the selected {specialState?.lastStakeChoice ?? "200/300"}-coin mode and applying the feature
-            multiplier now.
+            Resolving the locked {specialState?.selectedStakeChoice ?? specialState?.lastStakeChoice ?? "200/300"}-coin
+            mode and applying the feature multiplier now.
           </div>
         </div>
       ) : null}
@@ -989,20 +1003,14 @@ export default function App() {
             <h2>{specialState?.title}</h2>
             <p className="bonus-copy jackpot-copy">
               {specialState?.type === "mega_bonus_round"
-                ? "Mega bonus unlocked. Choose 200 or 300 for each of the next spins and stack that choice with x7."
-                : "Bonus round unlocked. Choose 200 or 300 for each of the next spins and stack that choice with x4."}
+                ? "Mega bonus unlocked. Choose 200 or 300 once and that mode will stay locked for the rest of the x7 round."
+                : "Bonus round unlocked. Choose 200 or 300 once and that mode will stay locked for the rest of the x4 round."}
             </p>
             <p className="bonus-copy bonus-progress">{specialState?.progressLabel ?? specialState?.subtitle}</p>
             <p className="bonus-copy">{specialState?.subtitle}</p>
-            {specialState?.lastStakeChoice ? (
-              <p className="bonus-copy">
-                Last resolved spin used {formatCoins(specialState.lastStakeChoice)} coins at x
-                {specialState?.lastStakeMultiplier ?? 1} before the feature multiplier.
-              </p>
-            ) : null}
 
             <div className="bonus-event-banner">
-              {specialState?.promptLabel ?? "Choose the stake mode for the next feature spin"}
+              {specialState?.promptLabel ?? "Choose the stake mode for this feature"}
             </div>
             <div className="bonus-choice-grid">
               {(specialState?.availableStakeOptions ?? []).map((stakeChoice) => (
@@ -1026,8 +1034,8 @@ export default function App() {
                 {specialState?.type === "mega_bonus_round" ? "10-spin mega bonus" : "5-spin bonus round"}
               </div>
               <div className="feature-runner-copy">
-                Your choice changes the bet amount mode for this spin only, and the feature multiplier is applied on
-                top of that choice.
+                Your choice locks the bet amount mode for this feature, and the feature multiplier is applied on top of
+                every spin in the round.
               </div>
             </div>
           </div>

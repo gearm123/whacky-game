@@ -601,16 +601,24 @@ function createUiState(state, result, events, resultMessage) {
             title: activeFeature.type === "mega_bonus_round" ? "Mega Bonus Round" : "Bonus Round",
             subtitle:
               activeFeature.type === "mega_bonus_round"
-                ? `${activeFeature.remaining} mega bonus spins remain at x${activeFeature.featureMultiplier}.`
-                : `${activeFeature.remaining} bonus spins remain at x${activeFeature.featureMultiplier}.`,
+                ? activeFeature.selectedStakeChoice
+                  ? `${activeFeature.remaining} mega bonus spins remain at x${activeFeature.featureMultiplier} using ${activeFeature.selectedStakeChoice}-coin mode.`
+                  : `${activeFeature.remaining} mega bonus spins remain at x${activeFeature.featureMultiplier}.`
+                : activeFeature.selectedStakeChoice
+                  ? `${activeFeature.remaining} bonus spins remain at x${activeFeature.featureMultiplier} using ${activeFeature.selectedStakeChoice}-coin mode.`
+                  : `${activeFeature.remaining} bonus spins remain at x${activeFeature.featureMultiplier}.`,
             progressLabel: `${activeFeature.played}/${activeFeature.totalSpins} spins played`,
-            manualChoice: true,
+            manualChoice: !activeFeature.selectedStakeChoice,
             availableStakeOptions: CONFIG.features.bonusStakeOptions,
             choiceMultipliers: CONFIG.features.bonusStakeMultipliers,
             featureMultiplier: activeFeature.featureMultiplier,
+            selectedStakeChoice: activeFeature.selectedStakeChoice ?? null,
+            selectedStakeMultiplier: activeFeature.selectedStakeMultiplier ?? null,
             lastStakeChoice: activeFeature.lastStakeChoice ?? null,
             lastStakeMultiplier: activeFeature.lastStakeMultiplier ?? null,
-            promptLabel: "Choose 200 or 300 for the next spin",
+            promptLabel: activeFeature.selectedStakeChoice
+              ? `Locked to ${activeFeature.selectedStakeChoice} mode for the rest of this feature`
+              : "Choose 200 or 300 once for this feature",
           }
         : null;
 
@@ -632,8 +640,12 @@ function createUiState(state, result, events, resultMessage) {
       ? activeFeature?.type === "free_spins"
         ? "A full same-family row unlocked free spins. Press Play to use each free spin at 0 coins."
         : activeFeature?.type === "mega_bonus_round"
-          ? "All 16 tiles matched one family. Choose 200 or 300 before each mega bonus spin."
-          : "A row or column plus 5 matching family tiles unlocked a bonus round. Choose 200 or 300 before each bonus spin."
+          ? activeFeature?.selectedStakeChoice
+            ? `All 16 tiles matched one family. Press Play to run each mega bonus spin with ${activeFeature.selectedStakeChoice} mode.`
+            : "All 16 tiles matched one family. Choose 200 or 300 to lock the mega bonus round mode."
+          : activeFeature?.selectedStakeChoice
+            ? `A row or column plus 5 matching family tiles unlocked a bonus round. Press Play to run each bonus spin with ${activeFeature.selectedStakeChoice} mode.`
+            : "A row or column plus 5 matching family tiles unlocked a bonus round. Choose 200 or 300 to lock the bonus round mode."
       : "The frontend resolves regular wins, losses, free spins, and bonus rounds directly.",
     resultMessage,
     lastWin,
@@ -750,6 +762,8 @@ export function runGameSpin(currentState) {
       played: 0,
       featureMultiplier: CONFIG.features.megaBonusMultiplier,
       stakeOptions: CONFIG.features.bonusStakeOptions,
+      selectedStakeChoice: null,
+      selectedStakeMultiplier: null,
       totalFeatureWin: 0,
     };
     events = [
@@ -766,6 +780,8 @@ export function runGameSpin(currentState) {
       played: 0,
       featureMultiplier: CONFIG.features.bonusRoundMultiplier,
       stakeOptions: CONFIG.features.bonusStakeOptions,
+      selectedStakeChoice: null,
+      selectedStakeMultiplier: null,
       totalFeatureWin: 0,
     };
     events = [
@@ -793,7 +809,7 @@ export function runGameSpin(currentState) {
     result.megaBonusTriggered
       ? `${result.megaBonusFamily ?? "Family"} filled the entire screen. Mega Bonus Round unlocked.`
       : result.bonusTriggered
-        ? `${result.bonusTriggerFamily ?? "Family"} triggered a Bonus Round. Choose 200 or 300 for each bonus spin.`
+        ? `${result.bonusTriggerFamily ?? "Family"} triggered a Bonus Round. Choose 200 or 300 to lock the round mode.`
         : result.freeSpinsAward > 0
           ? `${result.freeSpinTriggerFamily ?? "Family"} row complete. ${result.freeSpinsAward} free spins unlocked.`
           : result.totalWin > 0
@@ -888,16 +904,17 @@ export function runGameFeature(currentState, currentBoard, stakeChoice = null) {
     throw new Error("Unknown feature type.");
   }
 
-  const stakeMultiplier = CONFIG.features.bonusStakeMultipliers[stakeChoice];
+  const resolvedStakeChoice = stakeChoice ?? activeFeature.selectedStakeChoice;
+  const stakeMultiplier = CONFIG.features.bonusStakeMultipliers[resolvedStakeChoice];
   if (!stakeMultiplier) {
     throw new Error("Choose 200 or 300 before starting the bonus spin.");
   }
-  if (state.balance < stakeChoice) {
-    throw new Error(`Not enough balance to use ${stakeChoice} mode for this bonus spin.`);
+  if (state.balance < resolvedStakeChoice) {
+    throw new Error(`Not enough balance to use ${resolvedStakeChoice} mode for this bonus spin.`);
   }
 
-  state.balance -= stakeChoice;
-  state.totalPaid += stakeChoice;
+  state.balance -= resolvedStakeChoice;
+  state.totalPaid += resolvedStakeChoice;
 
   const roundType = weightedPick([
     { type: "lose", weight: 46 },
@@ -928,7 +945,9 @@ export function runGameFeature(currentState, currentBoard, stakeChoice = null) {
   activeFeature.played += 1;
   activeFeature.remaining -= 1;
   activeFeature.totalFeatureWin += result.totalWin;
-  activeFeature.lastStakeChoice = stakeChoice;
+  activeFeature.selectedStakeChoice = activeFeature.selectedStakeChoice ?? resolvedStakeChoice;
+  activeFeature.selectedStakeMultiplier = activeFeature.selectedStakeMultiplier ?? stakeMultiplier;
+  activeFeature.lastStakeChoice = resolvedStakeChoice;
   activeFeature.lastStakeMultiplier = stakeMultiplier;
 
   const progressEventType = activeFeature.type === "mega_bonus_round" ? "mega_bonus_round_progress" : "bonus_round_progress";
@@ -937,7 +956,7 @@ export function runGameFeature(currentState, currentBoard, stakeChoice = null) {
   const events = [
     createEvent(
       progressEventType,
-      `${featureLabel} spin used ${stakeChoice} mode for ${stakeMultiplier}x on top of x${activeFeature.featureMultiplier}.`,
+      `${featureLabel} spin used ${resolvedStakeChoice} mode for ${stakeMultiplier}x on top of x${activeFeature.featureMultiplier}.`,
     ),
   ];
 
@@ -956,8 +975,8 @@ export function runGameFeature(currentState, currentBoard, stakeChoice = null) {
       result,
       events,
       result.totalWin > 0
-        ? `${featureLabel} spin used ${stakeChoice} coins and paid ${result.totalWin} coins with the selected bet multiplier plus x${activeFeature.featureMultiplier}.`
-        : `${featureLabel} spin used ${stakeChoice} coins with the selected bet multiplier plus x${activeFeature.featureMultiplier} and paid no coins.`,
+        ? `${featureLabel} spin used ${resolvedStakeChoice} coins and paid ${result.totalWin} coins with the selected bet multiplier plus x${activeFeature.featureMultiplier}.`
+        : `${featureLabel} spin used ${resolvedStakeChoice} coins with the selected bet multiplier plus x${activeFeature.featureMultiplier} and paid no coins.`,
     ),
   };
 }
