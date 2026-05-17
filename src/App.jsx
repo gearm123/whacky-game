@@ -54,6 +54,7 @@ const DISNEY_IMAGE_ASSETS = [
   "/assets/disney/shrek.png",
   "/assets/disney/snow.png",
 ];
+const GEARM_SIGNATURE_ASSET = "/gearm-signature.svg";
 
 const PIXAR_IMAGE_ASSETS = [
   "/assets/pixar/buzz.png",
@@ -872,42 +873,80 @@ export default function App() {
       </div>
 
       <header className={isMobileLayout ? "mobile-topbar" : "simple-topbar"}>
-        <div className="brand-block">
-          <p className="eyebrow">Cartoon Puzzle Slot</p>
-          <h1>{config.title}</h1>
-        </div>
-
         {!isMobileLayout ? (
-          <div className="topbar-actions">
-            <div className="balance-chip">
-              <span>Balance</span>
-              <strong>{formatCoins(gameState.balance)} coins</strong>
+          <>
+            <div className="topbar-side topbar-side-left">
+              <img
+                className="topbar-gearm-mark"
+                src={GEARM_SIGNATURE_ASSET}
+                alt="Gearm"
+                width="140"
+                height="40"
+                decoding="async"
+              />
+            </div>
+
+            <div className="brand-block brand-block-centered">
+              <p className="eyebrow">Cartoon Puzzle Slot</p>
+              <h1>{config.title}</h1>
+            </div>
+
+            <div className="topbar-actions">
+              <div className="topbar-dedication" aria-label="This website is dedicated to Sasithon Wangyangnok">
+                <span className="topbar-dedication-intro">This website is dedicated to</span>
+                <strong translate="no">Sasithon Wangyangnok</strong>
+              </div>
+              <div className="balance-chip">
+                <span>Balance</span>
+                <strong>{formatCoins(gameState.balance)} coins</strong>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="mobile-topbar-stack">
+            <img
+              className="topbar-gearm-mark mobile-gearm-mark"
+              src={GEARM_SIGNATURE_ASSET}
+              alt="Gearm"
+              width="140"
+              height="40"
+              decoding="async"
+            />
+            <div className="brand-block">
+              <p className="eyebrow">Cartoon Puzzle Slot</p>
+              <h1>{config.title}</h1>
+            </div>
+            <div className="topbar-dedication topbar-dedication-mobile" aria-label="This website is dedicated to Sasithon Wangyangnok">
+              <span className="topbar-dedication-intro">This website is dedicated to</span>
+              <strong translate="no">Sasithon Wangyangnok</strong>
             </div>
           </div>
-        ) : null}
+        )}
       </header>
 
-      <nav className="breadcrumbs" aria-label="Breadcrumb">
-        <ol className="breadcrumb-list">
-          {breadcrumbItems.map((item, index) => {
-            const isLastItem = index === breadcrumbItems.length - 1;
+      {!isHomePage ? (
+        <nav className="breadcrumbs" aria-label="Breadcrumb">
+          <ol className="breadcrumb-list">
+            {breadcrumbItems.map((item, index) => {
+              const isLastItem = index === breadcrumbItems.length - 1;
 
-            return (
-              <li className="breadcrumb-item" key={item.id}>
-                {isLastItem ? (
-                  <span className="breadcrumb-current" aria-current="page">
-                    {item.label}
-                  </span>
-                ) : (
-                  <button type="button" className="breadcrumb-link" onClick={() => navigateToPage(item.id)}>
-                    {item.label}
-                  </button>
-                )}
-              </li>
-            );
-          })}
-        </ol>
-      </nav>
+              return (
+                <li className="breadcrumb-item" key={item.id}>
+                  {isLastItem ? (
+                    <span className="breadcrumb-current" aria-current="page">
+                      {item.label}
+                    </span>
+                  ) : (
+                    <button type="button" className="breadcrumb-link" onClick={() => navigateToPage(item.id)}>
+                      {item.label}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
+      ) : null}
 
       {isMobileLayout && isHomePage ? (
         <section className="mobile-summary-strip">
