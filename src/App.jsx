@@ -59,21 +59,29 @@ const GREEK_BACKGROUND_CLASSES = [
   "backdrop-figure backdrop-greek backdrop-greek-1",
   "backdrop-figure backdrop-greek backdrop-greek-2",
   "backdrop-figure backdrop-greek backdrop-greek-3",
+  "backdrop-figure backdrop-greek backdrop-greek-4",
+  "backdrop-figure backdrop-greek backdrop-greek-5",
 ];
 
 const LOONY_BACKGROUND_CLASSES = [
   "backdrop-figure backdrop-loony backdrop-loony-1",
   "backdrop-figure backdrop-loony backdrop-loony-2",
+  "backdrop-figure backdrop-loony backdrop-loony-3",
+  "backdrop-figure backdrop-loony backdrop-loony-4",
 ];
 
 const NETWORK_BACKGROUND_CLASSES = [
   "backdrop-figure backdrop-network backdrop-network-1",
   "backdrop-figure backdrop-network backdrop-network-2",
+  "backdrop-figure backdrop-network backdrop-network-3",
+  "backdrop-figure backdrop-network backdrop-network-4",
 ];
 
 const DISNEY_BACKGROUND_CLASSES = [
   "backdrop-figure backdrop-disney backdrop-disney-1",
   "backdrop-figure backdrop-disney backdrop-disney-2",
+  "backdrop-figure backdrop-disney backdrop-disney-3",
+  "backdrop-figure backdrop-disney backdrop-disney-4",
 ];
 
 const FAMILY_ORDER = ["GREEK", "SLAPSTICK", "MYSTERY", "DISNEY"];
@@ -88,6 +96,14 @@ const SITE_MAP_ITEMS = [
     description: "Landing view with the title, balance, and the active play area.",
   },
   {
+    title: "Guide Page",
+    description: "Step-by-step instructions, event rules, and feature explanations for the game flow.",
+  },
+  {
+    title: "FAQ Page",
+    description: "Standalone answers for payouts, trigger rules, feature choices, and balance behavior.",
+  },
+  {
     title: "Puzzle Grid",
     description: "Main 4x4 board where the family matches, free spins, and bonus triggers happen.",
   },
@@ -95,21 +111,13 @@ const SITE_MAP_ITEMS = [
     title: "Action Bar",
     description: "Play button, balance snapshot, and the quick way to open the help modal.",
   },
-  {
-    title: "Help Center",
-    description: "Guide, FAQ, site map, rules, puzzle families, and special-event explanations.",
-  },
-  {
-    title: "Bonus Prompts",
-    description: "Manual choice overlays for bonus round and mega bonus round spin modes.",
-  },
 ];
 
 const GUIDE_STEPS = [
   "Press Play to spend 100 coins and resolve the next 4x4 board.",
   "Match families on paylines to earn regular payouts while watching for feature triggers.",
   "Complete a full same-family row to unlock free spins that cost 0 coins.",
-  "Trigger a bonus round or mega bonus round, then choose 200 or 300 before each feature spin.",
+  "Trigger a bonus round or mega bonus round, then choose 200 or 300 once to lock that mode for the feature.",
   "Watch the highlighted tiles and win banners to understand why a win or feature triggered.",
 ];
 
@@ -132,13 +140,71 @@ const FAQ_ITEMS = [
   },
   {
     question: "What does the 200 or 300 choice mean?",
-    answer: "That choice changes the bonus-spin reward mode, and the bonus or mega-bonus multiplier is stacked on top.",
+    answer: "That choice locks the bonus-spin mode for the active feature, changes the per-spin feature cost, and stacks with the bonus or mega-bonus multiplier.",
   },
   {
     question: "Why do wins still feel possible if the game has an edge?",
     answer: "The stored RTP, hit-frequency, and volatility settings are tuned so wins stay visible while losses still dominate over time.",
   },
 ];
+
+const SITE_ORIGIN = "https://www.whacky-game.com";
+const PAGE_METADATA = {
+  home: {
+    id: "home",
+    label: "Home",
+    navLabel: "Play",
+    path: "/",
+    title: "Whacky Game",
+  },
+  guide: {
+    id: "guide",
+    label: "Guide",
+    navLabel: "Guide",
+    path: "/guide",
+    title: "Whacky Game Guide",
+  },
+  faq: {
+    id: "faq",
+    label: "FAQ",
+    navLabel: "FAQ",
+    path: "/faq",
+    title: "Whacky Game FAQ",
+  },
+};
+
+function getCurrentPageFromPath(pathname) {
+  const normalizedPath = pathname?.replace(/\/+$/, "").toLowerCase() || "/";
+
+  if (normalizedPath === "/guide" || normalizedPath === "/guides") {
+    return "guide";
+  }
+
+  if (normalizedPath === "/faq" || normalizedPath === "/faqs") {
+    return "faq";
+  }
+
+  return "home";
+}
+
+function buildBreadcrumbSchema(currentPage) {
+  const items = [PAGE_METADATA.home];
+
+  if (currentPage !== "home" && PAGE_METADATA[currentPage]) {
+    items.push(PAGE_METADATA[currentPage]);
+  }
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.label,
+      item: new URL(item.path, SITE_ORIGIN).toString(),
+    })),
+  };
+}
 
 function randomItem(items) {
   return items[Math.floor(Math.random() * items.length)];
@@ -350,6 +416,7 @@ export default function App() {
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
     window.matchMedia(MOBILE_MEDIA_QUERY).matches,
   );
+  const [currentPage, setCurrentPage] = useState(() => getCurrentPageFromPath(window.location.pathname));
 
   const symbols = config?.symbols ?? [];
   const themePayouts = config?.themePayouts ?? {};
@@ -372,6 +439,14 @@ export default function App() {
   const hasLockedBonusStake = Boolean(specialState?.selectedStakeChoice);
   const showBonusChoiceOverlay =
     isManualBonusFeature && !hasLockedBonusStake && !isFeatureRunning;
+  const isLockedBonusFeature = isManualBonusFeature && hasLockedBonusStake;
+  const isSpinActionDisabled =
+    isSpinning || isFeatureRunning || (specialState?.active && specialState.type !== "free_spins" && !isLockedBonusFeature);
+  const currentPageMeta = PAGE_METADATA[currentPage] ?? PAGE_METADATA.home;
+  const isHomePage = currentPage === "home";
+  const breadcrumbItems = currentPage === "home"
+    ? [PAGE_METADATA.home]
+    : [PAGE_METADATA.home, currentPageMeta];
   const overlayTheme = uiState?.overlayTheme ?? "greek";
   const winBannerLabel = uiState?.winBannerLabel ?? (hasWin ? "WIN" : "READY");
   const displayedSpinCost = isManualFreeSpin ? 0 : spinCost;
@@ -479,6 +554,39 @@ export default function App() {
     return () => mediaQuery.removeListener(handleChange);
   }, []);
 
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPage(getCurrentPageFromPath(window.location.pathname));
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  useEffect(() => {
+    document.title = currentPageMeta.title;
+
+    let canonicalLink = document.querySelector("link[rel='canonical']");
+    if (!canonicalLink) {
+      canonicalLink = document.createElement("link");
+      canonicalLink.setAttribute("rel", "canonical");
+      document.head.appendChild(canonicalLink);
+    }
+
+    canonicalLink.setAttribute("href", new URL(currentPageMeta.path, SITE_ORIGIN).toString());
+
+    const breadcrumbScriptId = "whacky-breadcrumb-schema";
+    let breadcrumbScript = document.getElementById(breadcrumbScriptId);
+    if (!breadcrumbScript) {
+      breadcrumbScript = document.createElement("script");
+      breadcrumbScript.id = breadcrumbScriptId;
+      breadcrumbScript.type = "application/ld+json";
+      document.head.appendChild(breadcrumbScript);
+    }
+
+    breadcrumbScript.textContent = JSON.stringify(buildBreadcrumbSchema(currentPage));
+  }, [currentPage, currentPageMeta]);
+
   async function loadGame() {
     setIsLoading(true);
     setError("");
@@ -509,6 +617,19 @@ export default function App() {
     loadGame();
   }, []);
 
+  function navigateToPage(pageId) {
+    const page = PAGE_METADATA[pageId] ?? PAGE_METADATA.home;
+    const nextUrl = page.path;
+
+    if (window.location.pathname !== nextUrl) {
+      window.history.pushState({}, "", nextUrl);
+    }
+
+    setCurrentPage(page.id);
+    window.scrollTo({ top: 0, behavior: "auto" });
+    trackEvent("site_navigation", { destination: page.id });
+  }
+
   useEffect(() => {
     if (!isSpinning || !config || symbolIds.length === 0) {
       return undefined;
@@ -538,7 +659,6 @@ export default function App() {
   }, [highlightedTiles, isFeatureRunning, isSpinning]);
 
   async function handleSpin() {
-    const isLockedBonusFeature = isManualBonusFeature && hasLockedBonusStake;
     const isBlockedByFeature = specialState?.active && specialState.type !== "free_spins" && !isLockedBonusFeature;
     if (!config || !sessionId || !gameState || isSpinning || isFeatureRunning || isBlockedByFeature) {
       return;
@@ -702,6 +822,11 @@ export default function App() {
         ))}
       </div>
       <div className="page-noise" />
+      <div className="coin-burst" aria-hidden="true">
+        {Array.from({ length: 12 }, (_, index) => (
+          <span key={index} className="coin-particle" />
+        ))}
+      </div>
 
       <header className={isMobileLayout ? "mobile-topbar" : "simple-topbar"}>
         <div className="brand-block">
@@ -719,7 +844,43 @@ export default function App() {
         ) : null}
       </header>
 
-      {isMobileLayout ? (
+      <nav className={`page-nav ${isMobileLayout ? "page-nav-mobile" : ""}`} aria-label="Primary">
+        {Object.values(PAGE_METADATA).map((page) => (
+          <button
+            key={page.id}
+            type="button"
+            className={`mode-button compact page-nav-button ${currentPage === page.id ? "page-nav-button-active" : ""}`}
+            onClick={() => navigateToPage(page.id)}
+            aria-current={currentPage === page.id ? "page" : undefined}
+          >
+            {page.navLabel}
+          </button>
+        ))}
+      </nav>
+
+      <nav className="breadcrumbs" aria-label="Breadcrumb">
+        <ol className="breadcrumb-list">
+          {breadcrumbItems.map((item, index) => {
+            const isLastItem = index === breadcrumbItems.length - 1;
+
+            return (
+              <li className="breadcrumb-item" key={item.id}>
+                {isLastItem ? (
+                  <span className="breadcrumb-current" aria-current="page">
+                    {item.label}
+                  </span>
+                ) : (
+                  <button type="button" className="breadcrumb-link" onClick={() => navigateToPage(item.id)}>
+                    {item.label}
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+
+      {isMobileLayout && isHomePage ? (
         <section className="mobile-summary-strip">
           <div className="balance-chip mobile-balance-chip">
             <span>Balance</span>
@@ -733,95 +894,215 @@ export default function App() {
       ) : null}
 
       <main className={`simple-stage ${isMobileLayout ? "simple-stage-mobile" : ""}`}>
-        <section className="cabinet simple-cabinet">
-          <div className={`cabinet-stage stage-${overlayTheme}`}>
-            <div className={`reel-frame ${isSpinning ? "reel-frame-spinning" : ""}`}>
-              {board.map((column, columnIndex) => (
-                <div className="reel-column" key={`reel-${columnIndex}`}>
-                  {column.map((symbolId, rowIndex) => {
-                    const symbol = symbolMap[symbolId];
-                    const tileImage = boardImages[`${columnIndex}-${rowIndex}`] ?? null;
-                    const isArtworkTile = Boolean(tileImage);
+        {isHomePage ? (
+          <section className="cabinet simple-cabinet">
+            <div className={`cabinet-stage stage-${overlayTheme}`}>
+              <div className={`reel-frame ${isSpinning ? "reel-frame-spinning" : ""}`}>
+                {board.map((column, columnIndex) => (
+                  <div className="reel-column" key={`reel-${columnIndex}`}>
+                    {column.map((symbolId, rowIndex) => {
+                      const symbol = symbolMap[symbolId];
+                      const tileImage = boardImages[`${columnIndex}-${rowIndex}`] ?? null;
+                      const isArtworkTile = Boolean(tileImage);
 
-                    return (
-                      <article
-                        key={`${columnIndex}-${rowIndex}-${symbolId}`}
-                        className={`symbol-tile ${isArtworkTile ? "symbol-tile-art" : symbol?.accent ?? ""} ${
-                          winningTileKeys.includes(`${columnIndex}-${rowIndex}`) ? "symbol-tile-winning" : ""
-                        }`}
-                        title={symbol?.label ?? symbolId}
-                      >
-                        {tileImage ? (
-                          <AssetImage
-                            src={tileImage}
-                            alt={symbol?.label ?? symbolId}
-                            className={`symbol-art ${isArtworkTile ? "puzzle-piece" : ""}`}
-                            fetchPriority="high"
-                          />
-                        ) : null}
-                        <span className="symbol-label">{symbol?.label ?? symbolId}</span>
-                        <span className="symbol-tag">{symbol?.tag ?? ""}</span>
-                      </article>
-                    );
-                  })}
+                      return (
+                        <article
+                          key={`${columnIndex}-${rowIndex}-${symbolId}`}
+                          className={`symbol-tile ${isArtworkTile ? "symbol-tile-art" : symbol?.accent ?? ""} ${
+                            winningTileKeys.includes(`${columnIndex}-${rowIndex}`) ? "symbol-tile-winning" : ""
+                          }`}
+                          title={symbol?.label ?? symbolId}
+                        >
+                          {tileImage ? (
+                            <AssetImage
+                              src={tileImage}
+                              alt={symbol?.label ?? symbolId}
+                              className={`symbol-art ${isArtworkTile ? "puzzle-piece" : ""}`}
+                              fetchPriority="high"
+                            />
+                          ) : null}
+                          <span className="symbol-label">{symbol?.label ?? symbolId}</span>
+                          <span className="symbol-tag">{symbol?.tag ?? ""}</span>
+                        </article>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+
+              {!isMobileLayout ? (
+                <div className={`win-banner banner-${flashTier}`}>
+                  <span className="win-banner-label">{winBannerLabel}</span>
+                  <strong>{winBannerValue}</strong>
                 </div>
-              ))}
+              ) : null}
             </div>
 
-            {!isMobileLayout ? (
-              <div className={`win-banner banner-${flashTier}`}>
-                <span className="win-banner-label">{winBannerLabel}</span>
-                <strong>{winBannerValue}</strong>
+            <div className="minimal-status">
+              <p>{uiState?.resultMessage ?? "Waiting for state..."}</p>
+              {error ? <p className="error-text">{error}</p> : null}
+            </div>
+
+            {isManualFreeSpin ? (
+              <div className="feature-runner free-spin-banner">
+                <div className="feature-runner-pill">Free Spins Ready</div>
+                <div className="feature-runner-copy">
+                  A full same-family row unlocked free spins. Press Play to use the next free spin at 0 coins.
+                </div>
               </div>
             ) : null}
-          </div>
 
-          <div className="minimal-status">
-            <p>{uiState?.resultMessage ?? "Waiting for state..."}</p>
-            {error ? <p className="error-text">{error}</p> : null}
-          </div>
-
-          {isManualFreeSpin ? (
-            <div className="feature-runner free-spin-banner">
-              <div className="feature-runner-pill">Free Spins Ready</div>
-              <div className="feature-runner-copy">
-                A full same-family row unlocked free spins. Press Play to use the next free spin at 0 coins.
+            {!isMobileLayout ? (
+              <div className="controls simple-controls">
+                <button
+                  type="button"
+                  className="spin-button"
+                  onClick={handleSpin}
+                  disabled={isSpinActionDisabled}
+                >
+                  {actionLabel}
+                </button>
+                <button
+                  type="button"
+                  className="mode-button compact secondary-button"
+                  onClick={() => {
+                    trackEvent("help_opened", { source: "desktop_controls" });
+                    setIsInfoOpen(true);
+                  }}
+                >
+                  Help
+                </button>
               </div>
+            ) : null}
+          </section>
+        ) : (
+          <section className="panel content-page-panel">
+            <div className="content-page-hero">
+              <p className="section-label">{currentPageMeta.label}</p>
+              <h2>{currentPage === "guide" ? "Whacky Game Guide" : "Whacky Game FAQ"}</h2>
+              <p className="content-page-copy">
+                {currentPage === "guide"
+                  ? "Use this guide to understand the spin flow, family matches, feature triggers, and the locked bonus mode before you jump back into the board."
+                  : "Use these quick answers to understand costs, trigger conditions, bonus choices, and how the game balance behaves during local play."}
+              </p>
             </div>
-          ) : null}
 
-          {!isMobileLayout ? (
-            <div className="controls simple-controls">
-              <button
-                type="button"
-                className="spin-button"
-                onClick={handleSpin}
-                disabled={isSpinning || isFeatureRunning || (specialState?.active && specialState.type !== "free_spins")}
-              >
-                {actionLabel}
-              </button>
-              <button
-                type="button"
-                className="mode-button compact secondary-button"
-                onClick={() => {
-                  trackEvent("help_opened", { source: "desktop_controls" });
-                  setIsInfoOpen(true);
-                }}
-              >
-                Help
-              </button>
+            <div className="info-grid content-page-grid">
+              {currentPage === "guide" ? (
+                <>
+                  <section className="info-section">
+                    <h3>Quick Guide</h3>
+                    <ol className="guide-list">
+                      {GUIDE_STEPS.map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
+                    </ol>
+                  </section>
+
+                  <section className="info-section">
+                    <h3>How To Play</h3>
+                    <ul>
+                      <li>Each spin costs {formatCoins(spinCost)} fake coins.</li>
+                      <li>Each unlocked free spin costs 0 coins and must be played manually.</li>
+                      <li>Match 3, 4, or 5 pieces from the same family across active paylines to win.</li>
+                      <li>Bonus rounds and mega bonus rounds ask you to choose 200 or 300 once, then lock that mode for the feature.</li>
+                      <li>Wild pieces can help complete matching lines.</li>
+                    </ul>
+                  </section>
+
+                  <section className="info-section info-section-wide">
+                    <h3>Special Events</h3>
+                    <ul>
+                      <li>
+                        Any full same-family row starts {config.features?.baseFreeSpins ?? 0} free spins with a{" "}
+                        {config.features?.freeSpinMultiplier ?? 1}x multiplier.
+                      </li>
+                      <li>
+                        A row or column with 5 or more tiles from the same family starts a{" "}
+                        {config.features?.bonusRoundSpins ?? 0}-spin bonus round at x
+                        {config.features?.bonusRoundMultiplier ?? 1}.
+                      </li>
+                      <li>
+                        All 16 tiles from the same family start a {config.features?.megaBonusSpins ?? 0}-spin mega bonus
+                        round at x{config.features?.megaBonusMultiplier ?? 1}.
+                      </li>
+                      {(config.eventDefinitions ?? []).map((eventDefinition) => (
+                        <li key={eventDefinition.type}>
+                          {eventDefinition.label}: {eventDefinition.description}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+
+                  <section className="info-section info-section-wide">
+                    <h3>Site Map</h3>
+                    <div className="family-grid">
+                      {SITE_MAP_ITEMS.map((item) => (
+                        <article className="family-card" key={item.title}>
+                          <h4>{item.title}</h4>
+                          <p>{item.description}</p>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                </>
+              ) : (
+                <>
+                  <section className="info-section info-section-wide">
+                    <h3>Frequently Asked Questions</h3>
+                    <div className="faq-grid">
+                      {FAQ_ITEMS.map((item) => (
+                        <article className="family-card" key={item.question}>
+                          <h4>{item.question}</h4>
+                          <p>{item.answer}</p>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="info-section info-section-wide">
+                    <h3>Puzzle Families</h3>
+                    <div className="family-grid">
+                      {familyDetails.map((family) => (
+                        <article className="family-card" key={family.id}>
+                          <h4>{family.label}</h4>
+                          <p>{family.members.join(" and ")}</p>
+                          <p className="family-prize">{formatPayoutSummary(family.payouts)}</p>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="info-section info-section-wide">
+                    <h3>Special Symbols</h3>
+                    <div className="family-grid">
+                      {specialSymbols.map((symbol) => (
+                        <article className="family-card" key={symbol.id}>
+                          <h4>{symbol.label}</h4>
+                          <p>{symbol.tag}</p>
+                          <p className="family-prize">
+                            {symbol.type === "wild"
+                              ? "Substitutes for regular family pieces."
+                              : "Special event symbols are currently handled through family patterns instead of board icons."}
+                          </p>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                </>
+              )}
             </div>
-          ) : null}
-        </section>
+          </section>
+        )}
       </main>
 
-      {isMobileLayout ? (
+      {isMobileLayout && isHomePage ? (
         <div className="mobile-action-bar">
           <button
             type="button"
             className="spin-button"
             onClick={handleSpin}
-            disabled={isSpinning || isFeatureRunning || (specialState?.active && specialState.type !== "free_spins")}
+            disabled={isSpinActionDisabled}
           >
             {actionLabel}
           </button>
@@ -862,7 +1143,7 @@ export default function App() {
                   <li>Each spin costs {formatCoins(spinCost)} fake coins.</li>
                   <li>Each unlocked free spin costs 0 coins and must be played manually.</li>
                   <li>Match 3, 4, or 5 pieces from the same family across active paylines to win.</li>
-                  <li>Bonus rounds and mega bonus rounds ask you to choose 200 or 300 before each feature spin.</li>
+                  <li>Bonus rounds and mega bonus rounds ask you to choose 200 or 300 once, then lock that mode for the feature.</li>
                   <li>Wild pieces can help complete matching lines.</li>
                   <li>The frontend resolves each spin and feature locally and keeps the balance in local browser storage.</li>
                 </ul>
@@ -959,7 +1240,7 @@ export default function App() {
         </div>
       ) : null}
 
-      {uiState?.celebrationLabel ? (
+      {isHomePage && uiState?.celebrationLabel ? (
         <div className="celebration-overlay" aria-hidden="true">
           <div className={`celebration-card celebration-${flashTier}`}>
             {uiState.celebrationLabel}
@@ -967,7 +1248,7 @@ export default function App() {
         </div>
       ) : null}
 
-      {isManualBonusFeature && isFeatureRunning ? (
+      {isHomePage && isManualBonusFeature && isFeatureRunning ? (
         <div className="feature-runner free-spin-banner">
           <div className="feature-runner-pill">
             {specialState?.type === "mega_bonus_round" ? "Mega Bonus Spin Running" : "Bonus Spin Running"}
@@ -979,7 +1260,7 @@ export default function App() {
         </div>
       ) : null}
 
-      {showBonusChoiceOverlay ? (
+      {isHomePage && showBonusChoiceOverlay ? (
         <div
           className={`bonus-overlay overlay-${overlayTheme} ${
             specialState?.type === "mega_bonus_round" || specialState?.type === "bonus_round"

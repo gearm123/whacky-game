@@ -76,6 +76,20 @@ button {
   opacity: 0.1;
 }
 
+.backdrop-greek-4 {
+  left: 1.5%;
+  top: 63%;
+  max-height: 11vh;
+  transform: rotate(-11deg);
+}
+
+.backdrop-greek-5 {
+  right: 1.5%;
+  top: 64%;
+  max-height: 11vh;
+  transform: rotate(10deg);
+}
+
 .backdrop-loony {
   opacity: 0.22;
   mix-blend-mode: screen;
@@ -94,6 +108,20 @@ button {
   top: 21%;
   max-height: 15vh;
   transform: rotate(7deg);
+}
+
+.backdrop-loony-3 {
+  left: 2.5%;
+  bottom: 29%;
+  max-height: 12vh;
+  transform: rotate(-12deg);
+}
+
+.backdrop-loony-4 {
+  right: 2.5%;
+  bottom: 30%;
+  max-height: 12vh;
+  transform: rotate(11deg);
 }
 
 .backdrop-network {
@@ -116,6 +144,20 @@ button {
   transform: rotate(6deg);
 }
 
+.backdrop-network-3 {
+  left: 11%;
+  top: 8%;
+  max-height: 11vh;
+  transform: rotate(-4deg);
+}
+
+.backdrop-network-4 {
+  right: 11%;
+  top: 8%;
+  max-height: 11vh;
+  transform: rotate(4deg);
+}
+
 .backdrop-disney {
   opacity: 0.2;
   mix-blend-mode: screen;
@@ -131,8 +173,7 @@ button {
 .sun-disk,
 .mount-olympus,
 .temple-silhouette,
-.laurel-ring,
-.coin-burst {
+.laurel-ring {
   display: none;
 }
 
@@ -148,6 +189,20 @@ button {
   bottom: 17%;
   max-height: 13vh;
   transform: rotate(5deg);
+}
+
+.backdrop-disney-3 {
+  left: 12%;
+  bottom: 3%;
+  max-height: 11vh;
+  transform: rotate(-7deg);
+}
+
+.backdrop-disney-4 {
+  right: 12%;
+  bottom: 3%;
+  max-height: 11vh;
+  transform: rotate(7deg);
 }
 
 .coin-cluster,
@@ -1069,6 +1124,92 @@ button {
   margin-top: 10px;
 }
 
+.page-nav,
+.breadcrumbs {
+  position: relative;
+  z-index: 1;
+  width: min(980px, 100%);
+  margin-inline: auto;
+}
+
+.page-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.page-nav .page-nav-button {
+  min-width: 110px;
+}
+
+.page-nav .page-nav-button-active {
+  background: linear-gradient(135deg, rgba(255, 224, 109, 0.22), rgba(86, 198, 255, 0.22));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    0 12px 28px rgba(31, 82, 129, 0.16);
+}
+
+.breadcrumbs {
+  margin-top: 10px;
+}
+
+.breadcrumb-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: #b7c7e6;
+  font-size: 0.88rem;
+}
+
+.breadcrumb-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.breadcrumb-item:not(:last-child)::after {
+  content: "/";
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.breadcrumb-link,
+.breadcrumb-current {
+  border-radius: 999px;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.breadcrumb-link {
+  cursor: pointer;
+  color: #dbe7fb;
+}
+
+.breadcrumb-current {
+  color: #ffe08a;
+}
+
+.content-page-panel {
+  width: min(980px, 100%);
+}
+
+.content-page-hero {
+  margin-bottom: 18px;
+}
+
+.content-page-copy {
+  margin: 10px 0 0;
+  max-width: 68ch;
+  color: #d1ddf3;
+  line-height: 1.65;
+}
+
 .mobile-action-bar {
   position: fixed;
   left: 12px;
@@ -1703,6 +1844,17 @@ button {
   .main-grid {
     grid-template-columns: 1fr;
   }
+
+  .backdrop-greek-4,
+  .backdrop-greek-5,
+  .backdrop-loony-3,
+  .backdrop-loony-4,
+  .backdrop-network-3,
+  .backdrop-network-4,
+  .backdrop-disney-3,
+  .backdrop-disney-4 {
+    display: none;
+  }
 }
 
 @media (max-height: 920px) {
@@ -1822,7 +1974,7 @@ button {
 
 @media (max-width: 760px) {
   .app-shell {
-    padding: 18px;
+    padding: 14px;
   }
 
   .coin-cluster,
@@ -1933,27 +2085,83 @@ button {
     margin-bottom: 4px;
   }
 
+  .layout-mobile .mobile-topbar,
+  .layout-mobile .mobile-summary-strip,
+  .layout-mobile .simple-stage,
+  .layout-mobile .page-nav,
+  .layout-mobile .breadcrumbs {
+    width: min(100%, 520px);
+    margin-inline: auto;
+  }
+
+  .layout-mobile .mobile-topbar {
+    gap: 8px;
+    padding: 12px 14px;
+    text-align: center;
+  }
+
+  .layout-mobile .brand-block {
+    text-align: center;
+  }
+
+  .layout-mobile .mobile-summary-strip {
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .layout-mobile .page-nav {
+    margin-top: 10px;
+    gap: 8px;
+  }
+
+  .layout-mobile .page-nav-button {
+    min-width: 0;
+    flex: 1 1 0;
+  }
+
+  .layout-mobile .breadcrumbs {
+    margin-top: 8px;
+  }
+
+  .layout-mobile .breadcrumb-list {
+    gap: 6px;
+    font-size: 0.82rem;
+  }
+
+  .layout-mobile .content-page-panel {
+    padding: 18px;
+  }
+
+  .layout-mobile .content-page-hero {
+    margin-bottom: 14px;
+    text-align: center;
+  }
+
+  .layout-mobile .content-page-copy {
+    max-width: none;
+    font-size: 0.94rem;
+  }
+
   .layout-mobile .simple-cabinet {
     width: 100%;
-    padding: 10px;
+    padding: 8px;
   }
 
   .layout-mobile .cabinet-stage {
     margin-top: 0;
-    padding: 8px;
-    border-radius: 22px;
+    padding: 8px 6px;
+    border-radius: 20px;
   }
 
   .layout-mobile .cabinet-stage::before,
   .layout-mobile .cabinet-stage::after {
-    top: 15%;
-    bottom: 13%;
-    width: 12px;
+    display: none;
   }
 
   .layout-mobile .minimal-status {
-    margin-top: 8px;
-    font-size: 0.94rem;
+    margin-top: 6px;
+    font-size: 0.92rem;
+    text-align: center;
   }
 
   .layout-mobile .minimal-status p + p {
@@ -1974,6 +2182,34 @@ button {
   .layout-mobile .mobile-win-banner {
     padding: 10px 12px;
     border-radius: 16px;
+  }
+
+  .layout-mobile .feature-runner,
+  .layout-mobile .free-spin-banner {
+    width: min(100%, 520px);
+    margin-inline: auto;
+  }
+
+  .layout-mobile .mobile-action-bar {
+    left: max(10px, env(safe-area-inset-left));
+    right: max(10px, env(safe-area-inset-right));
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    width: min(calc(100vw - 20px), 520px);
+    margin-inline: auto;
+    grid-template-columns: minmax(0, 1fr) 96px;
+    padding: 8px;
+    border-radius: 18px;
+  }
+
+  .layout-mobile .mobile-action-bar .spin-button {
+    min-height: 52px;
+    padding: 13px 16px;
+    font-size: 0.98rem;
+  }
+
+  .layout-mobile .mobile-action-bar .mode-button {
+    min-height: 52px;
+    padding-inline: 12px;
   }
 
   .layout-mobile .bonus-overlay {
@@ -2009,5 +2245,85 @@ button {
     padding: 16px 18px;
     font-size: clamp(1.4rem, 8vw, 2.2rem);
     letter-spacing: 0.08em;
+  }
+}
+
+@media (max-width: 420px) {
+  .layout-mobile {
+    padding: 10px 10px calc(92px + env(safe-area-inset-bottom));
+  }
+
+  .layout-mobile .mobile-topbar {
+    padding: 10px 12px;
+  }
+
+  .layout-mobile .brand-block h1 {
+    font-size: clamp(1.45rem, 8vw, 1.9rem);
+  }
+
+  .layout-mobile .balance-chip,
+  .layout-mobile .mobile-win-banner {
+    padding: 8px 10px;
+  }
+
+  .layout-mobile .page-nav {
+    gap: 6px;
+  }
+
+  .layout-mobile .page-nav-button {
+    padding: 10px 12px;
+    font-size: 0.9rem;
+  }
+
+  .layout-mobile .breadcrumb-link,
+  .layout-mobile .breadcrumb-current {
+    padding: 4px 8px;
+  }
+
+  .layout-mobile .balance-chip strong,
+  .layout-mobile .mobile-win-banner strong {
+    font-size: 0.96rem;
+  }
+
+  .layout-mobile .simple-cabinet {
+    padding: 6px;
+  }
+
+  .layout-mobile .cabinet-stage {
+    padding: 6px 4px;
+  }
+
+  .layout-mobile .reel-frame {
+    gap: 4px;
+    margin: 6px 0;
+    padding: 4px;
+    border-radius: 16px;
+  }
+
+  .layout-mobile .reel-column {
+    gap: 4px;
+  }
+
+  .layout-mobile .symbol-tile {
+    border-radius: 12px;
+    padding: 0;
+  }
+
+  .layout-mobile .symbol-tile-art {
+    border-radius: 12px;
+  }
+
+  .layout-mobile .minimal-status {
+    font-size: 0.88rem;
+  }
+
+  .layout-mobile .mobile-action-bar {
+    grid-template-columns: minmax(0, 1fr) 88px;
+    gap: 8px;
+  }
+
+  .layout-mobile .mobile-action-bar .spin-button,
+  .layout-mobile .mobile-action-bar .mode-button {
+    min-height: 48px;
   }
 }
