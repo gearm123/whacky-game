@@ -452,6 +452,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [winningTileKeys, setWinningTileKeys] = useState([]);
+  const [transientWinAmount, setTransientWinAmount] = useState(null);
   const [refillRequest, setRefillRequest] = useState(() => getStoredRefillRequest());
   const [isRequestingRefill, setIsRequestingRefill] = useState(false);
   const [isApplyingRefill, setIsApplyingRefill] = useState(false);
@@ -496,8 +497,19 @@ export default function App() {
     : [PAGE_METADATA.home, currentPageMeta];
   const secondaryPageButtons = [PAGE_METADATA.guide, PAGE_METADATA.faq];
   const overlayTheme = uiState?.overlayTheme ?? "greek";
-  const winBannerLabel = uiState?.winBannerLabel ?? (hasWin ? "WIN" : "READY");
   const displayedSpinCost = isManualFreeSpin ? 0 : spinCost;
+  const restingWinBannerLabel =
+    specialState?.type === "free_spins"
+      ? "FREE SPIN READY"
+      : specialState?.type === "mega_bonus_round"
+        ? "MEGA BONUS READY"
+        : specialState?.type === "bonus_round"
+          ? "BONUS READY"
+          : "SPIN READY";
+  const showTransientWin = Number.isFinite(transientWinAmount) && transientWinAmount > 0;
+  const winBannerLabel = showTransientWin
+    ? (uiState?.winBannerLabel ?? "WIN CONFIRMED")
+    : restingWinBannerLabel;
   const bonusStakeOptions = specialState?.availableStakeOptions ?? [];
   const lowestBonusStake = bonusStakeOptions.length > 0 ? Math.min(...bonusStakeOptions) : spinCost;
   const refillThreshold = isLockedBonusFeature
@@ -522,11 +534,9 @@ export default function App() {
     freeSpinPopupEvent?.type === "free_spins_retriggered"
       ? `${freeSpinPopupCount} added`
       : `${freeSpinPopupCount} free spins`;
-  const winBannerValue = isManualFreeSpin
-    ? `${formatCoins(displayedSpinCost)} coins`
-    : hasWin
-      ? `${formatCoins(lastWin)} coins`
-      : `${formatCoins(displayedSpinCost)} coins`;
+  const winBannerValue = showTransientWin
+    ? `${formatCoins(transientWinAmount)} coins`
+    : `${formatCoins(displayedSpinCost)} coins`;
   const actionLabel = isSpinning
     ? "Resolving..."
     : isFeatureRunning
@@ -733,6 +743,25 @@ export default function App() {
 
     return () => window.clearTimeout(timeoutId);
   }, [highlightedTiles, isFeatureRunning, isSpinning]);
+
+  useEffect(() => {
+    if (isSpinning || isFeatureRunning) {
+      setTransientWinAmount(null);
+    }
+  }, [isFeatureRunning, isSpinning]);
+
+  useEffect(() => {
+    if (isSpinning || isFeatureRunning || lastWin <= 0) {
+      return undefined;
+    }
+
+    setTransientWinAmount(lastWin);
+    const timeoutId = window.setTimeout(() => {
+      setTransientWinAmount(null);
+    }, 1800);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isFeatureRunning, isSpinning, lastWin, sessionId]);
 
   useEffect(() => {
     if (!refillRequest?.id || refillRequest.status !== "pending") {
