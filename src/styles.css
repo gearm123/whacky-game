@@ -1498,6 +1498,18 @@ button {
   animation: celebrationPop 0.45s ease, celebrationFade 2.2s ease forwards;
 }
 
+.celebration-title {
+  display: block;
+}
+
+.celebration-subtitle {
+  margin-top: 8px;
+  font-size: clamp(1rem, 2vw, 1.35rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #f7fbff;
+}
+
 .celebration-none {
   color: #eff4ff;
 }
@@ -1602,6 +1614,39 @@ button {
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.bonus-summary-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.bonus-summary-card {
+  border-radius: 20px;
+  padding: 16px 18px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: center;
+}
+
+.bonus-summary-card span {
+  display: block;
+  color: #cfe0fb;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.bonus-summary-card strong {
+  display: block;
+  margin-top: 8px;
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  color: #fff2bd;
 }
 
 .jackpot-copy {
@@ -1793,6 +1838,12 @@ button {
 
 .bonus-choice-button strong {
   font-size: 1.65rem;
+}
+
+.bonus-choice-button span {
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .bonus-choice-button small {
@@ -2421,6 +2472,10 @@ button {
   }
 
   .layout-mobile .bonus-choice-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .layout-mobile .bonus-summary-grid {
     grid-template-columns: 1fr;
   }
 

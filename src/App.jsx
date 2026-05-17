@@ -238,6 +238,11 @@ function formatCoins(value) {
   return Number(value ?? 0).toLocaleString();
 }
 
+function extractFirstNumber(value) {
+  const match = String(value ?? "").match(/(\d+)/);
+  return match ? Number(match[1]) : 0;
+}
+
 function wait(ms) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, ms);
@@ -479,6 +484,21 @@ export default function App() {
   const overlayTheme = uiState?.overlayTheme ?? "greek";
   const winBannerLabel = uiState?.winBannerLabel ?? (hasWin ? "WIN" : "READY");
   const displayedSpinCost = isManualFreeSpin ? 0 : spinCost;
+  const bonusRoundCount =
+    specialState?.type === "mega_bonus_round"
+      ? config?.features?.megaBonusSpins ?? 0
+      : specialState?.type === "bonus_round"
+        ? config?.features?.bonusRoundSpins ?? 0
+        : 0;
+  const freeSpinPopupEvent =
+    events.find((event) => event.type === "free_spins_started" || event.type === "free_spins_retriggered") ?? null;
+  const freeSpinPopupCount = extractFirstNumber(freeSpinPopupEvent?.summary);
+  const freeSpinPopupTitle =
+    freeSpinPopupEvent?.type === "free_spins_retriggered" ? "Extra Free Spins" : uiState?.celebrationLabel;
+  const freeSpinPopupMessage =
+    freeSpinPopupEvent?.type === "free_spins_retriggered"
+      ? `${freeSpinPopupCount} added`
+      : `${freeSpinPopupCount} free spins`;
   const winBannerValue = isManualFreeSpin
     ? `${formatCoins(displayedSpinCost)} coins`
     : hasWin
@@ -1337,10 +1357,11 @@ export default function App() {
         </div>
       ) : null}
 
-      {isHomePage && uiState?.celebrationLabel ? (
+      {isHomePage && (uiState?.celebrationLabel || freeSpinPopupEvent) ? (
         <div className="celebration-overlay" aria-hidden="true">
           <div className={`celebration-card celebration-${flashTier}`}>
-            {uiState.celebrationLabel}
+            <div className="celebration-title">{freeSpinPopupTitle ?? uiState?.celebrationLabel}</div>
+            {freeSpinPopupCount > 0 ? <div className="celebration-subtitle">{freeSpinPopupMessage}</div> : null}
           </div>
         </div>
       ) : null}
@@ -1374,22 +1395,21 @@ export default function App() {
               </div>
             ) : null}
 
-            <p className="section-label">Special Event</p>
             <div className="special-event-pill">
               {specialState?.type === "mega_bonus_round" ? "Mega Bonus Round" : "Bonus Round"}
             </div>
-            <h2>{specialState?.title}</h2>
-            <p className="bonus-copy jackpot-copy">
-              {specialState?.type === "mega_bonus_round"
-                ? "Mega bonus unlocked. Choose 200 or 300 once and that mode will stay locked for the rest of the x7 round."
-                : "Bonus round unlocked. Choose 200 or 300 once and that mode will stay locked for the rest of the x4 round."}
-            </p>
-            <p className="bonus-copy bonus-progress">{specialState?.progressLabel ?? specialState?.subtitle}</p>
-            <p className="bonus-copy">{specialState?.subtitle}</p>
-
-            <div className="bonus-event-banner">
-              {specialState?.promptLabel ?? "Choose the stake mode for this feature"}
+            <div className="bonus-summary-grid">
+              <div className="bonus-summary-card">
+                <span>Bonus rounds</span>
+                <strong>{bonusRoundCount}</strong>
+              </div>
+              <div className="bonus-summary-card">
+                <span>Multiplier</span>
+                <strong>X{specialState?.featureMultiplier ?? 1}</strong>
+              </div>
             </div>
+
+            <div className="bonus-event-banner">Choose bet</div>
             <div className="bonus-choice-grid">
               {(specialState?.availableStakeOptions ?? []).map((stakeChoice) => (
                 <button
@@ -1399,22 +1419,10 @@ export default function App() {
                   onClick={() => handleFeatureChoice(stakeChoice)}
                   disabled={isSpinning || isFeatureRunning || gameState.balance < stakeChoice}
                 >
-                  <span>{formatCoins(stakeChoice)} Mode</span>
-                  <strong>x{specialState?.choiceMultipliers?.[stakeChoice] ?? 1}</strong>
-                  <small>
-                    x{specialState?.featureMultiplier ?? 1} feature multiplier stays on top
-                  </small>
+                  <span>{formatCoins(stakeChoice)} coins</span>
+                  <strong>X{specialState?.choiceMultipliers?.[stakeChoice] ?? 1}</strong>
                 </button>
               ))}
-            </div>
-            <div className="feature-runner bonus-prompt-copy">
-              <div className="feature-runner-pill">
-                {specialState?.type === "mega_bonus_round" ? "10-spin mega bonus" : "5-spin bonus round"}
-              </div>
-              <div className="feature-runner-copy">
-                Your choice locks the bet amount mode for this feature, and the feature multiplier is applied on top of
-                every spin in the round.
-              </div>
             </div>
           </div>
         </div>

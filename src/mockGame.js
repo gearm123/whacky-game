@@ -201,7 +201,7 @@ const CONFIG = {
 };
 
 const STARTING_STATE = {
-  balance: 5000,
+  balance: 2000,
   activeFeature: null,
   totalSpins: 0,
   totalPaid: 0,

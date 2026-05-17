@@ -3,7 +3,7 @@ const STORAGE_KEY = "whacky-slot-wallet";
 const DEFAULT_WALLET = {
   userId: "local-user",
   currency: "COINS",
-  balance: 5000,
+  balance: 2000,
   version: 0,
   updatedAt: new Date().toISOString(),
 };
