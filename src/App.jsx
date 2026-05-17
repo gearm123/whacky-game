@@ -294,7 +294,13 @@ function pickSeededAsset(items, seedValue) {
   return items[hashString(seedValue) % items.length];
 }
 
+const PRELOADED_IMAGE_SOURCES = new Set();
+
 function preloadImage(src) {
+  if (!src || PRELOADED_IMAGE_SOURCES.has(src)) {
+    return Promise.resolve();
+  }
+
   return new Promise((resolve) => {
     const image = new Image();
     let finished = false;
@@ -305,6 +311,7 @@ function preloadImage(src) {
       }
 
       finished = true;
+      PRELOADED_IMAGE_SOURCES.add(src);
       resolve();
     };
 
@@ -327,6 +334,11 @@ function preloadImage(src) {
 }
 
 async function preloadAssets(sources, onProgress) {
+  if (sources.length === 0) {
+    onProgress({ loaded: 0, total: 0 });
+    return;
+  }
+
   let loadedCount = 0;
 
   onProgress({ loaded: 0, total: sources.length });
@@ -496,8 +508,8 @@ export default function App() {
     : [PAGE_METADATA.home, currentPageMeta];
   const secondaryPageButtons = [PAGE_METADATA.guide, PAGE_METADATA.faq];
   const overlayTheme = uiState?.overlayTheme ?? "greek";
-  const spinSettleDelayMs = isMobileLayout ? 850 : 1400;
-  const featureSettleDelayMs = isMobileLayout ? 650 : 950;
+  const spinSettleDelayMs = isMobileLayout ? 500 : 1400;
+  const featureSettleDelayMs = isMobileLayout ? 350 : 950;
   const displayedSpinCost = isManualFreeSpin ? 0 : spinCost;
   const restingWinBannerLabel =
     specialState?.type === "free_spins"
