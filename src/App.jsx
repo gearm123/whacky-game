@@ -295,14 +295,14 @@ function pickSeededAsset(items, seedValue) {
 }
 
 const PRELOADED_IMAGE_PROMISES = new Map();
-const PRELOADED_IMAGE_OBJECTS = new Map();
+const PRELOADED_IMAGE_SOURCES = new Set();
 
 function preloadImage(src) {
   if (!src) {
     return Promise.resolve();
   }
 
-  if (PRELOADED_IMAGE_OBJECTS.has(src)) {
+  if (PRELOADED_IMAGE_SOURCES.has(src)) {
     return Promise.resolve();
   }
 
@@ -321,7 +321,7 @@ function preloadImage(src) {
 
       finished = true;
       if (shouldCache) {
-        PRELOADED_IMAGE_OBJECTS.set(src, image);
+        PRELOADED_IMAGE_SOURCES.add(src);
       } else {
         PRELOADED_IMAGE_PROMISES.delete(src);
       }
@@ -377,7 +377,7 @@ function warmAssetsInBackground(sources, options = {}) {
   }
 
   const { batchSize = 4, delayMs = 1200, useIdleCallback = true } = options;
-  const queue = sources.filter((src) => src && !PRELOADED_IMAGE_OBJECTS.has(src));
+  const queue = sources.filter((src) => src && !PRELOADED_IMAGE_SOURCES.has(src));
   let offset = 0;
   let cancelled = false;
   let timeoutId = null;
@@ -582,6 +582,7 @@ export default function App() {
     [symbols],
   );
   const symbolArtworkById = useMemo(() => buildSymbolArtworkMap(symbols), [symbols]);
+  const boardRetryKey = useMemo(() => board.flat().join("|"), [board]);
   const symbolIds = useMemo(
     () => symbols.filter((symbol) => symbol.type === "regular").map((symbol) => symbol.id),
     [symbols],
@@ -1290,7 +1291,7 @@ export default function App() {
                               alt={symbol?.label ?? symbolId}
                               className={`symbol-art ${isArtworkTile ? "puzzle-piece" : ""}`}
                               fetchPriority="high"
-                              retryKey={sessionId}
+                              retryKey={`${sessionId}-${boardRetryKey}`}
                             />
                           ) : (
                             <>
@@ -1744,9 +1745,11 @@ export default function App() {
 
 function AssetImage({ src, alt, className, fetchPriority = "auto", retryKey = "" }) {
   const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     setFailed(false);
+    setAttempt(0);
   }, [retryKey, src]);
 
   if (!src || failed) {
@@ -1755,13 +1758,21 @@ function AssetImage({ src, alt, className, fetchPriority = "auto", retryKey = ""
 
   return (
     <img
+      key={`${src}-${attempt}`}
       src={src}
       alt={alt}
       className={className}
       loading={fetchPriority === "high" ? "eager" : "lazy"}
       decoding="async"
       fetchPriority={fetchPriority}
-      onError={() => setFailed(true)}
+      onError={() => {
+        if (attempt < 2) {
+          setAttempt((currentAttempt) => currentAttempt + 1);
+          return;
+        }
+
+        setFailed(true);
+      }}
     />
   );
 }
