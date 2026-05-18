@@ -294,14 +294,23 @@ function pickSeededAsset(items, seedValue) {
   return items[hashString(seedValue) % items.length];
 }
 
-const PRELOADED_IMAGE_SOURCES = new Set();
+const PRELOADED_IMAGE_PROMISES = new Map();
+const PRELOADED_IMAGE_OBJECTS = new Map();
 
 function preloadImage(src) {
-  if (!src || PRELOADED_IMAGE_SOURCES.has(src)) {
+  if (!src) {
     return Promise.resolve();
   }
 
-  return new Promise((resolve) => {
+  if (PRELOADED_IMAGE_OBJECTS.has(src)) {
+    return Promise.resolve();
+  }
+
+  if (PRELOADED_IMAGE_PROMISES.has(src)) {
+    return PRELOADED_IMAGE_PROMISES.get(src);
+  }
+
+  const preloadPromise = new Promise((resolve) => {
     const image = new Image();
     let finished = false;
 
@@ -312,7 +321,9 @@ function preloadImage(src) {
 
       finished = true;
       if (shouldCache) {
-        PRELOADED_IMAGE_SOURCES.add(src);
+        PRELOADED_IMAGE_OBJECTS.set(src, image);
+      } else {
+        PRELOADED_IMAGE_PROMISES.delete(src);
       }
       resolve();
     };
@@ -335,6 +346,9 @@ function preloadImage(src) {
       complete(true);
     }
   });
+
+  PRELOADED_IMAGE_PROMISES.set(src, preloadPromise);
+  return preloadPromise;
 }
 
 async function preloadAssets(sources, onProgress) {
@@ -698,6 +712,10 @@ export default function App() {
       const configPayload = getGameConfig();
       const walletPayload = await fetchWallet();
       const sessionPayload = createGameSession(walletPayload.balance);
+      const initialSymbolMap = Object.fromEntries((configPayload.symbols ?? []).map((symbol) => [symbol.id, symbol]));
+      const initialBoardImageSources = collectBoardImageSources(sessionPayload.board, initialSymbolMap);
+
+      await preloadAssets(initialBoardImageSources, setAssetLoadState);
 
       setConfig(configPayload);
       setSessionId(sessionPayload.sessionId);
@@ -717,8 +735,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    preloadAssets(ALL_IMAGE_ASSETS, setAssetLoadState).catch(() => undefined);
-  }, []);
+    if (isLoading) {
+      return;
+    }
+
+    preloadAssets(ALL_IMAGE_ASSETS, () => undefined).catch(() => undefined);
+  }, [isLoading]);
 
   function navigateToPage(pageId) {
     const page = PAGE_METADATA[pageId] ?? PAGE_METADATA.home;
@@ -1201,10 +1223,14 @@ export default function App() {
                               alt={symbol?.label ?? symbolId}
                               className={`symbol-art ${isArtworkTile ? "puzzle-piece" : ""}`}
                               fetchPriority="high"
+                              retryKey={sessionId}
                             />
-                          ) : null}
-                          <span className="symbol-label">{symbol?.label ?? symbolId}</span>
-                          <span className="symbol-tag">{symbol?.tag ?? ""}</span>
+                          ) : (
+                            <>
+                              <span className="symbol-label">{symbol?.label ?? symbolId}</span>
+                              <span className="symbol-tag">{symbol?.tag ?? ""}</span>
+                            </>
+                          )}
                         </article>
                       );
                     })}
@@ -1649,12 +1675,12 @@ export default function App() {
   );
 }
 
-function AssetImage({ src, alt, className, fetchPriority = "auto" }) {
+function AssetImage({ src, alt, className, fetchPriority = "auto", retryKey = "" }) {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     setFailed(false);
-  }, [src]);
+  }, [retryKey, src]);
 
   if (!src || failed) {
     return null;
