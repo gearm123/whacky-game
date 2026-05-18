@@ -751,6 +751,15 @@ button {
 
 .account-card-mobile {
   width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  row-gap: 10px;
+}
+
+.account-card-mobile .auth-launchers-mobile,
+.account-card-mobile .auth-signout-button {
+  grid-column: 1 / -1;
 }
 
 .wallet-mark {
@@ -796,13 +805,27 @@ button {
   color: #eef4ff;
 }
 
-.auth-inline {
+.auth-launchers {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-left: auto;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.auth-launchers-mobile {
+  width: 100%;
+  justify-content: stretch;
+}
+
+.auth-launchers-mobile .auth-launch-button {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.auth-launch-button {
+  min-width: 112px;
 }
 
 .auth-mode-toggle {
@@ -838,6 +861,10 @@ button {
   width: 100%;
 }
 
+.auth-fields-modal {
+  margin-top: 18px;
+}
+
 .auth-fields input {
   width: 150px;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -866,6 +893,46 @@ button {
   background: rgba(255, 123, 123, 0.12);
   border: 1px solid rgba(255, 123, 123, 0.18);
   color: #ffd1d1;
+}
+
+.auth-overlay {
+  z-index: 13;
+  background: rgba(6, 11, 22, 0.82);
+}
+
+.auth-modal {
+  width: min(540px, 100%);
+  padding: 24px;
+}
+
+.auth-modal-header {
+  margin-bottom: 16px;
+}
+
+.auth-modal-toggle {
+  width: fit-content;
+}
+
+.auth-modal-toggle .auth-toggle {
+  flex: 1 1 0;
+}
+
+.auth-modal-copy {
+  color: #d7e3f8;
+  line-height: 1.6;
+}
+
+.auth-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+.auth-error-banner-modal {
+  width: 100%;
+  margin: 14px 0 0;
 }
 
 .simple-stage {
@@ -2450,13 +2517,13 @@ button {
     align-items: stretch;
   }
 
-  .auth-inline {
+  .auth-launchers {
     margin-left: 0;
     justify-content: stretch;
   }
 
   .auth-fields,
-  .auth-inline,
+  .auth-launchers,
   .auth-mode-toggle {
     width: 100%;
   }
@@ -2588,7 +2655,7 @@ button {
 
   .layout-mobile .mobile-summary-strip {
     gap: 8px;
-    margin-top: 8px;
+    margin-top: 6px;
   }
 
   .layout-mobile .page-nav {
@@ -2708,6 +2775,24 @@ button {
     max-height: calc(100vh - 24px);
     border-radius: 24px;
     padding: 18px;
+  }
+
+  .layout-mobile .auth-modal {
+    width: min(100%, 420px);
+    padding: 18px;
+  }
+
+  .layout-mobile .auth-modal-toggle {
+    width: 100%;
+  }
+
+  .layout-mobile .auth-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .layout-mobile .auth-modal-actions .mode-button {
+    width: 100%;
   }
 
   .layout-mobile .bonus-grid {

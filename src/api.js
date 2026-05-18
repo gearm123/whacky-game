@@ -231,6 +231,8 @@ export async function signOut() {
   } finally {
     clearStoredSessionToken();
   }
+
+  return getGuestAccountSnapshot();
 }
 
 export async function fetchCurrentUser() {

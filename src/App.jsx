@@ -596,6 +596,7 @@ export default function App() {
   const [authForm, setAuthForm] = useState(AUTH_FORM_DEFAULT);
   const [authError, setAuthError] = useState("");
   const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
     window.matchMedia(MOBILE_MEDIA_QUERY).matches,
   );
@@ -868,6 +869,7 @@ export default function App() {
       resetGameForAccount(accountPayload, config);
       setAuthForm(AUTH_FORM_DEFAULT);
       setAuthMode("signin");
+      setIsAuthModalOpen(false);
       trackEvent(nextMode === "signup" ? "account_signed_up" : "account_signed_in", {
         username: accountPayload.user?.username,
       });
@@ -888,8 +890,7 @@ export default function App() {
     setError("");
 
     try {
-      await signOut();
-      const guestAccount = await fetchCurrentUser();
+      const guestAccount = await signOut();
       resetGameForAccount(guestAccount, config);
       trackEvent("account_signed_out");
     } catch (signOutError) {
@@ -897,6 +898,21 @@ export default function App() {
     } finally {
       setIsAuthSubmitting(false);
     }
+  }
+
+  function openAuthModal(nextMode) {
+    setAuthError("");
+    setAuthMode(nextMode);
+    setIsAuthModalOpen(true);
+  }
+
+  function closeAuthModal() {
+    if (isAuthSubmitting) {
+      return;
+    }
+
+    setIsAuthModalOpen(false);
+    setAuthError("");
   }
 
   useEffect(() => {
@@ -1318,10 +1334,6 @@ export default function App() {
             </div>
 
             <div className="topbar-actions">
-              <div className="topbar-dedication" aria-label="This website is dedicated to Sasithon Wangyangnok heart">
-                <span className="topbar-dedication-intro">This website is dedicated to</span>
-                <strong translate="no">Sasithon Wangyangnok ❤️</strong>
-              </div>
               <div className={balanceChipClassName}>
                 <span>{accountModeLabel}</span>
                 <strong>{formatCoins(gameState.balance)} coins</strong>
@@ -1333,50 +1345,20 @@ export default function App() {
                   <strong>{accountOwnerLabel}</strong>
                 </div>
                 {isGuestAccount ? (
-                  <div className="auth-inline">
-                    <div className="auth-mode-toggle" role="tablist" aria-label="Choose sign-in mode">
-                      <button
-                        type="button"
-                        className={`auth-toggle ${authMode === "signin" ? "auth-toggle-active" : ""}`}
-                        onClick={() => setAuthMode("signin")}
-                      >
-                        Sign In
-                      </button>
-                      <button
-                        type="button"
-                        className={`auth-toggle ${authMode === "signup" ? "auth-toggle-active" : ""}`}
-                        onClick={() => setAuthMode("signup")}
-                      >
-                        Sign Up
-                      </button>
-                    </div>
-                    <div className="auth-fields">
-                      <input
-                        type="text"
-                        value={authForm.username}
-                        onChange={(event) =>
-                          setAuthForm((currentForm) => ({ ...currentForm, username: event.target.value }))
-                        }
-                        placeholder="Username"
-                        autoComplete={authMode === "signup" ? "username" : "username"}
-                      />
-                      <input
-                        type="password"
-                        value={authForm.password}
-                        onChange={(event) =>
-                          setAuthForm((currentForm) => ({ ...currentForm, password: event.target.value }))
-                        }
-                        placeholder="Password"
-                        autoComplete={authMode === "signup" ? "new-password" : "current-password"}
-                      />
-                    </div>
+                  <div className="auth-launchers">
                     <button
                       type="button"
-                      className="mode-button compact auth-submit-button"
-                      onClick={() => handleAuthSubmit(authMode)}
-                      disabled={authSubmitDisabled}
+                      className="mode-button compact secondary-button auth-launch-button"
+                      onClick={() => openAuthModal("signin")}
                     >
-                      {isAuthSubmitting ? "Working..." : authMode === "signup" ? "Create Account" : "Enter"}
+                      Sign In
+                    </button>
+                    <button
+                      type="button"
+                      className="mode-button compact secondary-button auth-launch-button"
+                      onClick={() => openAuthModal("signup")}
+                    >
+                      Sign Up
                     </button>
                   </div>
                 ) : (
@@ -1406,10 +1388,6 @@ export default function App() {
               <p className="eyebrow">Cartoon Puzzle Slot</p>
               <h1>{config.title}</h1>
             </div>
-            <div className="topbar-dedication topbar-dedication-mobile" aria-label="This website is dedicated to Sasithon Wangyangnok">
-              <span className="topbar-dedication-intro">This website is dedicated to</span>
-              <strong translate="no">Sasithon Wangyangnok</strong>
-            </div>
             <div className={balanceChipClassName}>
               <span>{accountModeLabel}</span>
               <strong>{formatCoins(gameState.balance)} coins</strong>
@@ -1421,52 +1399,22 @@ export default function App() {
                 <strong>{accountOwnerLabel}</strong>
               </div>
               {isGuestAccount ? (
-                <>
-                  <div className="auth-mode-toggle" role="tablist" aria-label="Choose sign-in mode">
-                    <button
-                      type="button"
-                      className={`auth-toggle ${authMode === "signin" ? "auth-toggle-active" : ""}`}
-                      onClick={() => setAuthMode("signin")}
-                    >
-                      Sign In
-                    </button>
-                    <button
-                      type="button"
-                      className={`auth-toggle ${authMode === "signup" ? "auth-toggle-active" : ""}`}
-                      onClick={() => setAuthMode("signup")}
-                    >
-                      Sign Up
-                    </button>
-                  </div>
-                  <div className="auth-fields auth-fields-mobile">
-                    <input
-                      type="text"
-                      value={authForm.username}
-                      onChange={(event) =>
-                        setAuthForm((currentForm) => ({ ...currentForm, username: event.target.value }))
-                      }
-                      placeholder="Username"
-                      autoComplete={authMode === "signup" ? "username" : "username"}
-                    />
-                    <input
-                      type="password"
-                      value={authForm.password}
-                      onChange={(event) =>
-                        setAuthForm((currentForm) => ({ ...currentForm, password: event.target.value }))
-                      }
-                      placeholder="Password"
-                      autoComplete={authMode === "signup" ? "new-password" : "current-password"}
-                    />
-                  </div>
+                <div className="auth-launchers auth-launchers-mobile">
                   <button
                     type="button"
-                    className="mode-button compact auth-submit-button"
-                    onClick={() => handleAuthSubmit(authMode)}
-                    disabled={authSubmitDisabled}
+                    className="mode-button compact secondary-button auth-launch-button"
+                    onClick={() => openAuthModal("signin")}
                   >
-                    {isAuthSubmitting ? "Working..." : authMode === "signup" ? "Create Account" : "Enter"}
+                    Sign In
                   </button>
-                </>
+                  <button
+                    type="button"
+                    className="mode-button compact secondary-button auth-launch-button"
+                    onClick={() => openAuthModal("signup")}
+                  >
+                    Sign Up
+                  </button>
+                </div>
               ) : (
                 <button
                   type="button"
@@ -1481,8 +1429,6 @@ export default function App() {
           </div>
         )}
       </header>
-
-      {authError ? <p className="auth-error-banner">{authError}</p> : null}
 
       {!isHomePage ? (
         <nav className="breadcrumbs" aria-label="Breadcrumb">
@@ -1510,10 +1456,6 @@ export default function App() {
 
       {isMobileLayout && isHomePage ? (
         <section className="mobile-summary-strip">
-          <div className={`${balanceChipClassName} mobile-balance-chip`}>
-            <span>{accountModeLabel}</span>
-            <strong>{formatCoins(gameState.balance)} coins</strong>
-          </div>
           <div className={`win-banner mobile-win-banner banner-${flashTier}`}>
             <span className="win-banner-label">{winBannerLabel}</span>
             <strong>{winBannerValue}</strong>
@@ -1930,6 +1872,92 @@ export default function App() {
                   ))}
                 </div>
               </section>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isAuthModalOpen ? (
+        <div className="bonus-overlay auth-overlay" onClick={closeAuthModal}>
+          <div className="bonus-modal auth-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="info-header auth-modal-header">
+              <div>
+                <p className="section-label">Account Access</p>
+                <h2>{authMode === "signup" ? "Create your player account" : "Sign in to your player account"}</h2>
+              </div>
+              <button
+                type="button"
+                className="mode-button compact secondary-button"
+                onClick={closeAuthModal}
+                disabled={isAuthSubmitting}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="auth-mode-toggle auth-modal-toggle" role="tablist" aria-label="Choose sign-in mode">
+              <button
+                type="button"
+                className={`auth-toggle ${authMode === "signin" ? "auth-toggle-active" : ""}`}
+                onClick={() => setAuthMode("signin")}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                className={`auth-toggle ${authMode === "signup" ? "auth-toggle-active" : ""}`}
+                onClick={() => setAuthMode("signup")}
+              >
+                Sign Up
+              </button>
+            </div>
+
+            <div className="auth-modal-copy">
+              {authMode === "signup"
+                ? "Create a username and password to keep your gold signed-in balance synced with the backend."
+                : "Sign in with your username and password to continue from your gold signed-in balance."}
+            </div>
+
+            <div className="auth-fields auth-fields-modal">
+              <input
+                type="text"
+                value={authForm.username}
+                onChange={(event) =>
+                  setAuthForm((currentForm) => ({ ...currentForm, username: event.target.value }))
+                }
+                placeholder="Username"
+                autoComplete="username"
+              />
+              <input
+                type="password"
+                value={authForm.password}
+                onChange={(event) =>
+                  setAuthForm((currentForm) => ({ ...currentForm, password: event.target.value }))
+                }
+                placeholder="Password"
+                autoComplete={authMode === "signup" ? "new-password" : "current-password"}
+              />
+            </div>
+
+            {authError ? <p className="auth-error-banner auth-error-banner-modal">{authError}</p> : null}
+
+            <div className="auth-modal-actions">
+              <button
+                type="button"
+                className="mode-button compact secondary-button"
+                onClick={closeAuthModal}
+                disabled={isAuthSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="mode-button compact auth-submit-button"
+                onClick={() => handleAuthSubmit(authMode)}
+                disabled={authSubmitDisabled}
+              >
+                {isAuthSubmitting ? "Working..." : authMode === "signup" ? "Create Account" : "Sign In"}
+              </button>
             </div>
           </div>
         </div>
