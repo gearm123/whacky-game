@@ -517,7 +517,7 @@ function collectBoardImageSources(board, symbolMap) {
 
       const imageSource = pickSeededAsset(
         assetPool,
-        `${symbolId}-${symbol?.themeGroup ?? symbol?.type ?? "tile"}-${columnIndex}-${rowIndex}`,
+        `${symbolId}-${symbol?.themeGroup ?? symbol?.type ?? "tile"}`,
       );
 
       if (imageSource) {
@@ -527,6 +527,25 @@ function collectBoardImageSources(board, symbolMap) {
   });
 
   return Array.from(imageSources);
+}
+
+function buildSymbolArtworkMap(symbols) {
+  return Object.fromEntries(
+    symbols.map((symbol) => {
+      const assetPool = getSymbolAssetPool(symbol);
+      const imageSource =
+        assetPool.length > 0 ? pickSeededAsset(assetPool, `${symbol.id}-${symbol.themeGroup ?? symbol.type ?? "tile"}`) : null;
+      return [symbol.id, imageSource];
+    }),
+  );
+}
+
+function collectSymbolImageSources(symbols) {
+  return Array.from(
+    new Set(
+      Object.values(buildSymbolArtworkMap(symbols)).filter(Boolean),
+    ),
+  );
 }
 
 export default function App() {
@@ -562,6 +581,7 @@ export default function App() {
     () => Object.fromEntries(symbols.map((symbol) => [symbol.id, symbol])),
     [symbols],
   );
+  const symbolArtworkById = useMemo(() => buildSymbolArtworkMap(symbols), [symbols]);
   const symbolIds = useMemo(
     () => symbols.filter((symbol) => symbol.type === "regular").map((symbol) => symbol.id),
     [symbols],
@@ -587,8 +607,8 @@ export default function App() {
     : [PAGE_METADATA.home, currentPageMeta];
   const secondaryPageButtons = [PAGE_METADATA.guide, PAGE_METADATA.faq];
   const overlayTheme = uiState?.overlayTheme ?? "greek";
-  const spinSettleDelayMs = isMobileLayout ? 500 : 1400;
-  const featureSettleDelayMs = isMobileLayout ? 350 : 950;
+  const spinSettleDelayMs = isMobileLayout ? 260 : 1400;
+  const featureSettleDelayMs = isMobileLayout ? 180 : 950;
   const displayedSpinCost = isManualFreeSpin ? 0 : spinCost;
   const restingWinBannerLabel =
     specialState?.type === "free_spins"
@@ -640,28 +660,6 @@ export default function App() {
       : isManualFreeSpin
         ? "Play Free Spin"
         : "Play";
-
-  const boardImages = useMemo(() => {
-    const assignments = {};
-
-    board.forEach((column, columnIndex) => {
-      column.forEach((symbolId, rowIndex) => {
-        const symbol = symbolMap[symbolId];
-        const assetPool = getSymbolAssetPool(symbol);
-
-        if (assetPool.length === 0) {
-          return;
-        }
-
-        assignments[`${columnIndex}-${rowIndex}`] = pickSeededAsset(
-          assetPool,
-          `${symbolId}-${symbol?.themeGroup ?? symbol?.type ?? "tile"}-${columnIndex}-${rowIndex}`,
-        );
-      });
-    });
-
-    return assignments;
-  }, [board, symbolMap]);
 
   const backgroundGreekImages = useMemo(
     () => deterministicShuffle(GREEK_IMAGE_ASSETS, "greek-background"),
@@ -773,8 +771,7 @@ export default function App() {
       const configPayload = getGameConfig();
       const walletPayload = await fetchWallet();
       const sessionPayload = createGameSession(walletPayload.balance);
-      const initialSymbolMap = Object.fromEntries((configPayload.symbols ?? []).map((symbol) => [symbol.id, symbol]));
-      const initialBoardImageSources = collectBoardImageSources(sessionPayload.board, initialSymbolMap);
+      const initialBoardImageSources = collectSymbolImageSources(configPayload.symbols ?? []);
 
       await preloadAssets(initialBoardImageSources, setAssetLoadState);
 
@@ -796,7 +793,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (isLoading) {
+    if (isLoading || isMobileLayout) {
       return;
     }
 
@@ -806,8 +803,8 @@ export default function App() {
     }
 
     return warmAssetsInBackground(ALL_IMAGE_ASSETS, {
-      batchSize: isMobileLayout ? 2 : 4,
-      delayMs: isMobileLayout ? 1600 : 1200,
+      batchSize: 3,
+      delayMs: 2000,
     });
   }, [isLoading, isMobileLayout]);
 
@@ -1275,7 +1272,7 @@ export default function App() {
                   <div className="reel-column" key={`reel-${columnIndex}`}>
                     {column.map((symbolId, rowIndex) => {
                       const symbol = symbolMap[symbolId];
-                      const tileImage = boardImages[`${columnIndex}-${rowIndex}`] ?? null;
+                      const tileImage = symbolArtworkById[symbolId] ?? null;
                       const isArtworkTile = Boolean(tileImage);
 
                       return (
