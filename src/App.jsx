@@ -371,6 +371,67 @@ async function preloadAssets(sources, onProgress) {
   );
 }
 
+function warmAssetsInBackground(sources, options = {}) {
+  if (typeof window === "undefined") {
+    return () => undefined;
+  }
+
+  const { batchSize = 4, delayMs = 1200 } = options;
+  const queue = sources.filter((src) => src && !PRELOADED_IMAGE_OBJECTS.has(src));
+  let offset = 0;
+  let cancelled = false;
+  let timeoutId = null;
+  let idleCallbackId = null;
+
+  const runNextBatch = async () => {
+    if (cancelled || offset >= queue.length) {
+      return;
+    }
+
+    const batch = queue.slice(offset, offset + batchSize);
+    offset += batch.length;
+    await preloadAssets(batch, () => undefined);
+
+    if (!cancelled && offset < queue.length) {
+      scheduleNextBatch();
+    }
+  };
+
+  const scheduleNextBatch = () => {
+    if (cancelled || offset >= queue.length) {
+      return;
+    }
+
+    if (typeof window.requestIdleCallback === "function") {
+      idleCallbackId = window.requestIdleCallback(
+        () => {
+          idleCallbackId = null;
+          void runNextBatch();
+        },
+        { timeout: delayMs },
+      );
+      return;
+    }
+
+    timeoutId = window.setTimeout(() => {
+      timeoutId = null;
+      void runNextBatch();
+    }, delayMs);
+  };
+
+  scheduleNextBatch();
+
+  return () => {
+    cancelled = true;
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId);
+    }
+    if (idleCallbackId !== null && typeof window.cancelIdleCallback === "function") {
+      window.cancelIdleCallback(idleCallbackId);
+    }
+  };
+}
+
 function getSymbolAssetPool(symbol) {
   if (!symbol) {
     return [];
@@ -739,8 +800,16 @@ export default function App() {
       return;
     }
 
-    preloadAssets(ALL_IMAGE_ASSETS, () => undefined).catch(() => undefined);
-  }, [isLoading]);
+    const connection = navigator.connection ?? navigator.mozConnection ?? navigator.webkitConnection;
+    if (connection?.saveData || connection?.effectiveType === "slow-2g" || connection?.effectiveType === "2g") {
+      return;
+    }
+
+    return warmAssetsInBackground(ALL_IMAGE_ASSETS, {
+      batchSize: isMobileLayout ? 2 : 4,
+      delayMs: isMobileLayout ? 1600 : 1200,
+    });
+  }, [isLoading, isMobileLayout]);
 
   function navigateToPage(pageId) {
     const page = PAGE_METADATA[pageId] ?? PAGE_METADATA.home;
