@@ -4,10 +4,13 @@ import {
   applyApprovedRefill,
   claimStoredRefillRequest,
   createRefillRequest,
+  fetchCurrentUser,
   fetchStoredRefillRequestStatus,
-  fetchWallet,
   getGuestId,
   getStoredRefillRequest,
+  signIn,
+  signOut,
+  signUp,
   settleWallet,
 } from "./api";
 import { trackEvent } from "./analytics";
@@ -159,7 +162,7 @@ const GUIDE_STEPS = [
 const FAQ_ITEMS = [
   {
     question: "How much does a normal spin cost?",
-    answer: "A normal spin costs 200 fake coins. Free spins cost 0 coins once they are unlocked.",
+    answer: "A normal spin costs 200 coins. Free spins cost 0 coins once they are unlocked.",
   },
   {
     question: "How do I trigger free spins?",
@@ -207,6 +210,11 @@ const PAGE_METADATA = {
   },
 };
 
+const AUTH_FORM_DEFAULT = {
+  username: "",
+  password: "",
+};
+
 function getCurrentPageFromPath(pathname) {
   const normalizedPath = pathname?.replace(/\/+$/, "").toLowerCase() || "/";
 
@@ -246,6 +254,10 @@ function randomItem(items) {
 
 function formatCoins(value) {
   return Number(value ?? 0).toLocaleString();
+}
+
+function getWalletTheme(wallet) {
+  return wallet?.isGuestWallet ? "guest" : "user";
 }
 
 function extractFirstNumber(value) {
@@ -570,6 +582,20 @@ export default function App() {
     loaded: 0,
     total: ALL_IMAGE_ASSETS.length,
   });
+  const [account, setAccount] = useState({
+    isGuest: true,
+    user: {
+      id: "guest-user",
+      username: "guest-player",
+      displayName: "Guest Player",
+      billingProfile: "guest-demo-coins",
+    },
+    wallet: null,
+  });
+  const [authMode, setAuthMode] = useState("signin");
+  const [authForm, setAuthForm] = useState(AUTH_FORM_DEFAULT);
+  const [authError, setAuthError] = useState("");
+  const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
     window.matchMedia(MOBILE_MEDIA_QUERY).matches,
   );
@@ -592,6 +618,16 @@ export default function App() {
   const lastWin = uiState?.lastWin ?? 0;
   const hasWin = lastWin > 0;
   const specialState = uiState?.specialState ?? null;
+  const isGuestAccount = account?.isGuest ?? true;
+  const activeWallet = account?.wallet ?? null;
+  const walletTheme = getWalletTheme(activeWallet);
+  const balanceChipClassName = `balance-chip balance-chip-${walletTheme}`;
+  const accountModeLabel = isGuestAccount ? "Guest Demo Coins" : "Signed-In Player Coins";
+  const accountOwnerLabel = isGuestAccount
+    ? "Guest Browser"
+    : account?.user?.displayName || account?.user?.username || "Signed-In Player";
+  const authSubmitDisabled =
+    isAuthSubmitting || authForm.username.trim().length < 3 || authForm.password.length < 4;
   const isManualFreeSpin = specialState?.type === "free_spins";
   const isManualBonusFeature =
     specialState?.type === "bonus_round" || specialState?.type === "mega_bonus_round";
@@ -631,7 +667,8 @@ export default function App() {
       ? lowestBonusStake
       : spinCost;
   const needsRefill = Number(gameState?.balance ?? 0) < refillThreshold;
-  const showRefillPanel = isHomePage && (needsRefill || Boolean(refillRequest));
+  const showRefillPanel = isHomePage && isGuestAccount && (needsRefill || Boolean(refillRequest));
+  const showSignedInBalancePanel = isHomePage && !isGuestAccount && needsRefill;
   const bonusRoundCount =
     specialState?.type === "mega_bonus_round"
       ? config?.features?.megaBonusSpins ?? 0
@@ -763,29 +800,102 @@ export default function App() {
     breadcrumbScript.textContent = JSON.stringify(buildBreadcrumbSchema(currentPage));
   }, [currentPage, currentPageMeta]);
 
+  function resetGameForAccount(accountPayload, configPayload) {
+    const nextSession = createGameSession(accountPayload?.wallet?.balance ?? 0);
+
+    setAccount(accountPayload);
+    setSessionId(nextSession.sessionId);
+    setGameState(nextSession.state);
+    setUiState(nextSession.uiState);
+    setBoard(nextSession.board);
+    setEvents(nextSession.events ?? []);
+    setConfig(configPayload);
+    setIsSpinning(false);
+    setIsFeatureRunning(false);
+    setWinningTileKeys([]);
+    setTransientWinAmount(null);
+    setError("");
+
+    if (accountPayload?.isGuest) {
+      setRefillRequest(getStoredRefillRequest());
+    } else {
+      setRefillRequest(null);
+      setRefillError("");
+    }
+  }
+
   async function loadGame() {
     setIsLoading(true);
     setError("");
+    setAuthError("");
     setAssetLoadState({ loaded: 0, total: 0 });
 
     try {
       const configPayload = getGameConfig();
-      const walletPayload = await fetchWallet();
-      const sessionPayload = createGameSession(walletPayload.balance);
+      const accountPayload = await fetchCurrentUser();
       const initialBoardImageSources = collectSymbolImageSources(configPayload.symbols ?? []);
 
       await preloadAssets(initialBoardImageSources, setAssetLoadState);
-
-      setConfig(configPayload);
-      setSessionId(sessionPayload.sessionId);
-      setGameState(sessionPayload.state);
-      setUiState(sessionPayload.uiState);
-      setBoard(sessionPayload.board);
-      setEvents(sessionPayload.events ?? []);
+      resetGameForAccount(accountPayload, configPayload);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load config.");
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handleAuthSubmit(nextMode) {
+    if (authSubmitDisabled || !config) {
+      return;
+    }
+
+    setAuthError("");
+    setError("");
+    setIsAuthSubmitting(true);
+
+    try {
+      const accountPayload =
+        nextMode === "signup"
+          ? await signUp({
+              username: authForm.username.trim(),
+              password: authForm.password,
+            })
+          : await signIn({
+              username: authForm.username.trim(),
+              password: authForm.password,
+            });
+
+      resetGameForAccount(accountPayload, config);
+      setAuthForm(AUTH_FORM_DEFAULT);
+      setAuthMode("signin");
+      trackEvent(nextMode === "signup" ? "account_signed_up" : "account_signed_in", {
+        username: accountPayload.user?.username,
+      });
+    } catch (submitError) {
+      setAuthError(submitError instanceof Error ? submitError.message : "Could not complete sign in.");
+    } finally {
+      setIsAuthSubmitting(false);
+    }
+  }
+
+  async function handleSignOut() {
+    if (!config || isAuthSubmitting) {
+      return;
+    }
+
+    setIsAuthSubmitting(true);
+    setAuthError("");
+    setError("");
+
+    try {
+      await signOut();
+      const guestAccount = await fetchCurrentUser();
+      resetGameForAccount(guestAccount, config);
+      trackEvent("account_signed_out");
+    } catch (signOutError) {
+      setAuthError(signOutError instanceof Error ? signOutError.message : "Could not sign out.");
+    } finally {
+      setIsAuthSubmitting(false);
     }
   }
 
@@ -871,7 +981,7 @@ export default function App() {
   }, [isFeatureRunning, isSpinning, lastWin, sessionId]);
 
   useEffect(() => {
-    if (!refillRequest?.id || refillRequest.status !== "pending") {
+    if (!isGuestAccount || !refillRequest?.id || refillRequest.status !== "pending") {
       return undefined;
     }
 
@@ -900,10 +1010,10 @@ export default function App() {
       isCancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [refillRequest?.id, refillRequest?.status]);
+  }, [isGuestAccount, refillRequest?.id, refillRequest?.status]);
 
   useEffect(() => {
-    if (!refillRequest?.id || refillRequest.status !== "approved" || isApplyingRefill) {
+    if (!isGuestAccount || !refillRequest?.id || refillRequest.status !== "approved" || isApplyingRefill) {
       return undefined;
     }
 
@@ -925,6 +1035,10 @@ export default function App() {
 
         setRefillRequest(null);
         setRefillError("");
+        setAccount((currentAccount) => ({
+          ...currentAccount,
+          wallet: walletPayload,
+        }));
         setGameState((currentState) =>
           currentState
             ? {
@@ -962,10 +1076,10 @@ export default function App() {
     return () => {
       isCancelled = true;
     };
-  }, [isApplyingRefill, refillRequest]);
+  }, [isApplyingRefill, isGuestAccount, refillRequest]);
 
   async function handleRefillRequest() {
-    if (isRequestingRefill || isApplyingRefill) {
+    if (!isGuestAccount || isRequestingRefill || isApplyingRefill) {
       return;
     }
 
@@ -1031,6 +1145,10 @@ export default function App() {
         wait(Math.max(0, spinSettleDelayMs - elapsed)),
       ]);
 
+      setAccount((currentAccount) => ({
+        ...currentAccount,
+        wallet: walletPayload,
+      }));
       setSessionId(payload.sessionId);
       setBoard(payload.board);
       setGameState({ ...payload.state, balance: walletPayload.balance });
@@ -1069,6 +1187,10 @@ export default function App() {
         wait(featureSettleDelayMs),
       ]);
 
+      setAccount((currentAccount) => ({
+        ...currentAccount,
+        wallet: walletPayload,
+      }));
       setSessionId(payload.sessionId);
       setBoard(payload.board);
       setGameState({ ...payload.state, balance: walletPayload.balance });
@@ -1170,7 +1292,7 @@ export default function App() {
         ))}
       </div>
       <div className="page-noise" />
-      <div className="coin-burst" aria-hidden="true">
+      <div className={`coin-burst coin-burst-${walletTheme}`} aria-hidden="true">
         {Array.from({ length: 12 }, (_, index) => (
           <span key={index} className="coin-particle" />
         ))}
@@ -1200,9 +1322,73 @@ export default function App() {
                 <span className="topbar-dedication-intro">This website is dedicated to</span>
                 <strong translate="no">Sasithon Wangyangnok ❤️</strong>
               </div>
-              <div className="balance-chip">
-                <span>Balance</span>
+              <div className={balanceChipClassName}>
+                <span>{accountModeLabel}</span>
                 <strong>{formatCoins(gameState.balance)} coins</strong>
+              </div>
+              <div className={`account-card account-card-${walletTheme}`}>
+                <div className={`wallet-mark wallet-mark-${walletTheme}`} aria-hidden="true" />
+                <div className="account-card-copy">
+                  <span className="account-card-label">{isGuestAccount ? "Playing as guest" : "Signed in"}</span>
+                  <strong>{accountOwnerLabel}</strong>
+                </div>
+                {isGuestAccount ? (
+                  <div className="auth-inline">
+                    <div className="auth-mode-toggle" role="tablist" aria-label="Choose sign-in mode">
+                      <button
+                        type="button"
+                        className={`auth-toggle ${authMode === "signin" ? "auth-toggle-active" : ""}`}
+                        onClick={() => setAuthMode("signin")}
+                      >
+                        Sign In
+                      </button>
+                      <button
+                        type="button"
+                        className={`auth-toggle ${authMode === "signup" ? "auth-toggle-active" : ""}`}
+                        onClick={() => setAuthMode("signup")}
+                      >
+                        Sign Up
+                      </button>
+                    </div>
+                    <div className="auth-fields">
+                      <input
+                        type="text"
+                        value={authForm.username}
+                        onChange={(event) =>
+                          setAuthForm((currentForm) => ({ ...currentForm, username: event.target.value }))
+                        }
+                        placeholder="Username"
+                        autoComplete={authMode === "signup" ? "username" : "username"}
+                      />
+                      <input
+                        type="password"
+                        value={authForm.password}
+                        onChange={(event) =>
+                          setAuthForm((currentForm) => ({ ...currentForm, password: event.target.value }))
+                        }
+                        placeholder="Password"
+                        autoComplete={authMode === "signup" ? "new-password" : "current-password"}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="mode-button compact auth-submit-button"
+                      onClick={() => handleAuthSubmit(authMode)}
+                      disabled={authSubmitDisabled}
+                    >
+                      {isAuthSubmitting ? "Working..." : authMode === "signup" ? "Create Account" : "Enter"}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="mode-button compact secondary-button auth-signout-button"
+                    onClick={handleSignOut}
+                    disabled={isAuthSubmitting}
+                  >
+                    {isAuthSubmitting ? "Signing Out..." : "Sign Out"}
+                  </button>
+                )}
               </div>
             </div>
           </>
@@ -1224,9 +1410,79 @@ export default function App() {
               <span className="topbar-dedication-intro">This website is dedicated to</span>
               <strong translate="no">Sasithon Wangyangnok</strong>
             </div>
+            <div className={balanceChipClassName}>
+              <span>{accountModeLabel}</span>
+              <strong>{formatCoins(gameState.balance)} coins</strong>
+            </div>
+            <div className={`account-card account-card-${walletTheme} account-card-mobile`}>
+              <div className={`wallet-mark wallet-mark-${walletTheme}`} aria-hidden="true" />
+              <div className="account-card-copy">
+                <span className="account-card-label">{isGuestAccount ? "Playing as guest" : "Signed in"}</span>
+                <strong>{accountOwnerLabel}</strong>
+              </div>
+              {isGuestAccount ? (
+                <>
+                  <div className="auth-mode-toggle" role="tablist" aria-label="Choose sign-in mode">
+                    <button
+                      type="button"
+                      className={`auth-toggle ${authMode === "signin" ? "auth-toggle-active" : ""}`}
+                      onClick={() => setAuthMode("signin")}
+                    >
+                      Sign In
+                    </button>
+                    <button
+                      type="button"
+                      className={`auth-toggle ${authMode === "signup" ? "auth-toggle-active" : ""}`}
+                      onClick={() => setAuthMode("signup")}
+                    >
+                      Sign Up
+                    </button>
+                  </div>
+                  <div className="auth-fields auth-fields-mobile">
+                    <input
+                      type="text"
+                      value={authForm.username}
+                      onChange={(event) =>
+                        setAuthForm((currentForm) => ({ ...currentForm, username: event.target.value }))
+                      }
+                      placeholder="Username"
+                      autoComplete={authMode === "signup" ? "username" : "username"}
+                    />
+                    <input
+                      type="password"
+                      value={authForm.password}
+                      onChange={(event) =>
+                        setAuthForm((currentForm) => ({ ...currentForm, password: event.target.value }))
+                      }
+                      placeholder="Password"
+                      autoComplete={authMode === "signup" ? "new-password" : "current-password"}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="mode-button compact auth-submit-button"
+                    onClick={() => handleAuthSubmit(authMode)}
+                    disabled={authSubmitDisabled}
+                  >
+                    {isAuthSubmitting ? "Working..." : authMode === "signup" ? "Create Account" : "Enter"}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="mode-button compact secondary-button auth-signout-button"
+                  onClick={handleSignOut}
+                  disabled={isAuthSubmitting}
+                >
+                  {isAuthSubmitting ? "Signing Out..." : "Sign Out"}
+                </button>
+              )}
+            </div>
           </div>
         )}
       </header>
+
+      {authError ? <p className="auth-error-banner">{authError}</p> : null}
 
       {!isHomePage ? (
         <nav className="breadcrumbs" aria-label="Breadcrumb">
@@ -1254,8 +1510,8 @@ export default function App() {
 
       {isMobileLayout && isHomePage ? (
         <section className="mobile-summary-strip">
-          <div className="balance-chip mobile-balance-chip">
-            <span>Balance</span>
+          <div className={`${balanceChipClassName} mobile-balance-chip`}>
+            <span>{accountModeLabel}</span>
             <strong>{formatCoins(gameState.balance)} coins</strong>
           </div>
           <div className={`win-banner mobile-win-banner banner-${flashTier}`}>
@@ -1354,6 +1610,16 @@ export default function App() {
               </div>
             ) : null}
 
+            {showSignedInBalancePanel ? (
+              <div className="refill-panel refill-panel-user">
+                <strong>Signed-in balance is low</strong>
+                <p className="refill-copy">
+                  Your signed-in player coins live on the backend account. Ask the admin to add more coins to your
+                  username and the next refresh will continue from that stored balance.
+                </p>
+              </div>
+            ) : null}
+
             {!isMobileLayout ? (
               <div className="controls simple-controls">
                 <button
@@ -1398,7 +1664,7 @@ export default function App() {
               <p className="content-page-copy">
                 {currentPage === "guide"
                   ? "Use this guide to understand the spin flow, family matches, feature triggers, and the locked bonus mode before you jump back into the board."
-                  : "Use these quick answers to understand costs, trigger conditions, bonus choices, and how the game balance behaves during local play."}
+                  : "Use these quick answers to understand costs, trigger conditions, bonus choices, and how guest versus signed-in balances behave."}
               </p>
             </div>
 
@@ -1417,7 +1683,7 @@ export default function App() {
                   <section className="info-section">
                     <h3>How To Play</h3>
                     <ul>
-                      <li>Each spin costs {formatCoins(spinCost)} fake coins.</li>
+                      <li>Each spin costs {formatCoins(spinCost)} coins.</li>
                       <li>Each unlocked free spin costs 0 coins and must be played manually.</li>
                       <li>Match 3, 4, or 5 pieces from the same family across active paylines to win.</li>
                       <li>Bonus rounds and mega bonus rounds ask you to choose 200 or 300 once, then lock that mode for the feature.</li>
@@ -1569,12 +1835,12 @@ export default function App() {
               <section className="info-section">
                 <h3>How To Play</h3>
                 <ul>
-                  <li>Each spin costs {formatCoins(spinCost)} fake coins.</li>
+                  <li>Each spin costs {formatCoins(spinCost)} coins.</li>
                   <li>Each unlocked free spin costs 0 coins and must be played manually.</li>
                   <li>Match 3, 4, or 5 pieces from the same family across active paylines to win.</li>
                   <li>Bonus rounds and mega bonus rounds ask you to choose 200 or 300 once, then lock that mode for the feature.</li>
                   <li>Wild pieces can help complete matching lines.</li>
-                  <li>The frontend resolves each spin and feature locally and keeps the balance in local browser storage.</li>
+                  <li>Guest balances stay in local browser storage, while signed-in player balances are synced to the backend on each change.</li>
                 </ul>
               </section>
 
