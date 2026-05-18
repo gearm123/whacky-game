@@ -271,6 +271,11 @@ function wait(ms) {
   });
 }
 
+function isInsufficientFundsError(error) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /not enough balance|not enough balance for the next spin|not enough balance to use/i.test(message);
+}
+
 function buildShuffleBoard(symbolIds, reels, rows) {
   return Array.from({ length: reels }, () =>
     Array.from({ length: rows }, () => randomItem(symbolIds)),
@@ -597,6 +602,7 @@ export default function App() {
   const [authError, setAuthError] = useState("");
   const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [insufficientFundsNotice, setInsufficientFundsNotice] = useState("");
   const [isMobileLayout, setIsMobileLayout] = useState(() =>
     window.matchMedia(MOBILE_MEDIA_QUERY).matches,
   );
@@ -669,7 +675,6 @@ export default function App() {
       : spinCost;
   const needsRefill = Number(gameState?.balance ?? 0) < refillThreshold;
   const showRefillPanel = isHomePage && isGuestAccount && (needsRefill || Boolean(refillRequest));
-  const showSignedInBalancePanel = isHomePage && !isGuestAccount && needsRefill;
   const bonusRoundCount =
     specialState?.type === "mega_bonus_round"
       ? config?.features?.megaBonusSpins ?? 0
@@ -918,6 +923,20 @@ export default function App() {
   useEffect(() => {
     loadGame();
   }, []);
+
+  useEffect(() => {
+    if (!insufficientFundsNotice) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setInsufficientFundsNotice("");
+    }, 1800);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [insufficientFundsNotice]);
 
   useEffect(() => {
     if (isLoading) {
@@ -1171,7 +1190,12 @@ export default function App() {
       setUiState(payload.uiState);
       setEvents(payload.events ?? []);
     } catch (spinError) {
-      setError(spinError instanceof Error ? spinError.message : "Spin request failed.");
+      if (isInsufficientFundsError(spinError)) {
+        setInsufficientFundsNotice("Insufficient funds");
+        setError("");
+      } else {
+        setError(spinError instanceof Error ? spinError.message : "Spin request failed.");
+      }
     } finally {
       setIsSpinning(false);
     }
@@ -1213,7 +1237,12 @@ export default function App() {
       setUiState(payload.uiState);
       setEvents(payload.events ?? []);
     } catch (featureError) {
-      setError(featureError instanceof Error ? featureError.message : "Feature resolution failed.");
+      if (isInsufficientFundsError(featureError)) {
+        setInsufficientFundsNotice("Insufficient funds");
+        setError("");
+      } else {
+        setError(featureError instanceof Error ? featureError.message : "Feature resolution failed.");
+      }
     } finally {
       setIsFeatureRunning(false);
     }
@@ -1487,6 +1516,7 @@ export default function App() {
                             <AssetImage
                               src={tileImage}
                               alt={symbol?.label ?? symbolId}
+                              fallbackLabel={symbol?.label ?? symbolId}
                               className={`symbol-art ${isArtworkTile ? "puzzle-piece" : ""}`}
                               fetchPriority="high"
                               retryKey={`${sessionId}-${boardRetryKey}`}
@@ -1512,10 +1542,9 @@ export default function App() {
               ) : null}
             </div>
 
-            {uiState?.resultMessage || error ? (
+            {error ? (
               <div className="minimal-status">
-                {uiState?.resultMessage ? <p>{uiState.resultMessage}</p> : null}
-                {error ? <p className="error-text">{error}</p> : null}
+                <p className="error-text">{error}</p>
               </div>
             ) : null}
 
@@ -1552,16 +1581,6 @@ export default function App() {
               </div>
             ) : null}
 
-            {showSignedInBalancePanel ? (
-              <div className="refill-panel refill-panel-user">
-                <strong>Signed-in balance is low</strong>
-                <p className="refill-copy">
-                  Your signed-in player coins live on the backend account. Ask the admin to add more coins to your
-                  username and the next refresh will continue from that stored balance.
-                </p>
-              </div>
-            ) : null}
-
             {!isMobileLayout ? (
               <div className="controls simple-controls">
                 <button
@@ -1585,18 +1604,20 @@ export default function App() {
               </div>
             ) : null}
 
-            <div className={`page-nav page-nav-bottom ${isMobileLayout ? "page-nav-mobile" : ""}`} aria-label="More pages">
-              {secondaryPageButtons.map((page) => (
-                <button
-                  key={page.id}
-                  type="button"
-                  className={`mode-button compact page-nav-button ${currentPage === page.id ? "page-nav-button-active" : ""}`}
-                  onClick={() => navigateToPage(page.id)}
-                >
-                  {page.navLabel}
-                </button>
-              ))}
-            </div>
+            {!isMobileLayout ? (
+              <div className="page-nav page-nav-bottom" aria-label="More pages">
+                {secondaryPageButtons.map((page) => (
+                  <button
+                    key={page.id}
+                    type="button"
+                    className={`mode-button compact page-nav-button ${currentPage === page.id ? "page-nav-button-active" : ""}`}
+                    onClick={() => navigateToPage(page.id)}
+                  >
+                    {page.navLabel}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </section>
         ) : (
           <section className="panel content-page-panel">
@@ -1734,26 +1755,40 @@ export default function App() {
       </main>
 
       {isMobileLayout && isHomePage ? (
-        <div className="mobile-action-bar">
-          <button
-            type="button"
-            className="spin-button"
-            onClick={handleSpin}
-            disabled={isSpinActionDisabled}
-          >
-            {actionLabel}
-          </button>
-          <button
-            type="button"
-            className="mode-button compact secondary-button"
-            onClick={() => {
-              trackEvent("help_opened", { source: "mobile_action_bar" });
-              setIsInfoOpen(true);
-            }}
-          >
-            Help
-          </button>
-        </div>
+        <>
+          <div className="mobile-action-bar">
+            <button
+              type="button"
+              className="spin-button"
+              onClick={handleSpin}
+              disabled={isSpinActionDisabled}
+            >
+              {actionLabel}
+            </button>
+            <button
+              type="button"
+              className="mode-button compact secondary-button"
+              onClick={() => {
+                trackEvent("help_opened", { source: "mobile_action_bar" });
+                setIsInfoOpen(true);
+              }}
+            >
+              Help
+            </button>
+          </div>
+          <div className="page-nav page-nav-bottom page-nav-mobile" aria-label="More pages">
+            {secondaryPageButtons.map((page) => (
+              <button
+                key={page.id}
+                type="button"
+                className={`mode-button compact page-nav-button ${currentPage === page.id ? "page-nav-button-active" : ""}`}
+                onClick={() => navigateToPage(page.id)}
+              >
+                {page.navLabel}
+              </button>
+            ))}
+          </div>
+        </>
       ) : null}
 
       {isInfoOpen ? (
@@ -1963,6 +1998,12 @@ export default function App() {
         </div>
       ) : null}
 
+      {insufficientFundsNotice ? (
+        <div className="toast-popup" role="status" aria-live="polite">
+          {insufficientFundsNotice}
+        </div>
+      ) : null}
+
       {isHomePage && (uiState?.celebrationLabel || freeSpinPopupEvent) ? (
         <div className="celebration-overlay" aria-hidden="true">
           <div className={`celebration-card celebration-${flashTier}`}>
@@ -2037,36 +2078,50 @@ export default function App() {
   );
 }
 
-function AssetImage({ src, alt, className, fetchPriority = "auto", retryKey = "" }) {
+function AssetImage({ src, alt, className, fetchPriority = "auto", retryKey = "", fallbackLabel = "" }) {
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     setFailed(false);
     setAttempt(0);
+    setLoaded(false);
   }, [retryKey, src]);
 
-  if (!src || failed) {
+  const resolvedSrc =
+    attempt > 0 ? `${src}${src.includes("?") ? "&" : "?"}retry=${attempt}` : src;
+
+  if (!src) {
     return null;
   }
 
   return (
-    <img
-      key={`${src}-${attempt}`}
-      src={src}
-      alt={alt}
-      className={className}
-      loading={fetchPriority === "high" ? "eager" : "lazy"}
-      decoding="async"
-      fetchPriority={fetchPriority}
-      onError={() => {
-        if (attempt < 2) {
-          setAttempt((currentAttempt) => currentAttempt + 1);
-          return;
-        }
+    <span className="symbol-art-shell">
+      {!loaded ? <span className="symbol-art-fallback">{fallbackLabel || alt}</span> : null}
+      {!failed ? (
+        <img
+          key={`${resolvedSrc}-${attempt}`}
+          src={resolvedSrc}
+          alt={alt}
+          className={`${className} ${loaded ? "symbol-art-ready" : "symbol-art-loading"}`}
+          loading={fetchPriority === "high" ? "eager" : "lazy"}
+          decoding="async"
+          fetchPriority={fetchPriority}
+          onLoad={() => {
+            setLoaded(true);
+          }}
+          onError={() => {
+            setLoaded(false);
+            if (attempt < 2) {
+              setAttempt((currentAttempt) => currentAttempt + 1);
+              return;
+            }
 
-        setFailed(true);
-      }}
-    />
+            setFailed(true);
+          }}
+        />
+      ) : null}
+    </span>
   );
 }
