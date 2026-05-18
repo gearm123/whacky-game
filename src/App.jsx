@@ -692,14 +692,11 @@ export default function App() {
   async function loadGame() {
     setIsLoading(true);
     setError("");
-    setAssetLoadState({ loaded: 0, total: ALL_IMAGE_ASSETS.length });
+    setAssetLoadState({ loaded: 0, total: 0 });
 
     try {
-      const walletPromise = fetchWallet();
-      const assetPromise = preloadAssets(ALL_IMAGE_ASSETS, setAssetLoadState);
       const configPayload = getGameConfig();
-      const walletPayload = await walletPromise;
-      await assetPromise;
+      const walletPayload = await fetchWallet();
       const sessionPayload = createGameSession(walletPayload.balance);
 
       setConfig(configPayload);
@@ -717,6 +714,10 @@ export default function App() {
 
   useEffect(() => {
     loadGame();
+  }, []);
+
+  useEffect(() => {
+    preloadAssets(ALL_IMAGE_ASSETS, setAssetLoadState).catch(() => undefined);
   }, []);
 
   function navigateToPage(pageId) {
