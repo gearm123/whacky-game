@@ -376,7 +376,7 @@ function warmAssetsInBackground(sources, options = {}) {
     return () => undefined;
   }
 
-  const { batchSize = 4, delayMs = 1200 } = options;
+  const { batchSize = 4, delayMs = 1200, useIdleCallback = true } = options;
   const queue = sources.filter((src) => src && !PRELOADED_IMAGE_OBJECTS.has(src));
   let offset = 0;
   let cancelled = false;
@@ -402,7 +402,7 @@ function warmAssetsInBackground(sources, options = {}) {
       return;
     }
 
-    if (typeof window.requestIdleCallback === "function") {
+    if (useIdleCallback && typeof window.requestIdleCallback === "function") {
       idleCallbackId = window.requestIdleCallback(
         () => {
           idleCallbackId = null;
@@ -793,7 +793,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (isLoading || isMobileLayout) {
+    if (isLoading) {
       return;
     }
 
@@ -803,8 +803,9 @@ export default function App() {
     }
 
     return warmAssetsInBackground(ALL_IMAGE_ASSETS, {
-      batchSize: 3,
-      delayMs: 2000,
+      batchSize: isMobileLayout ? 6 : 10,
+      delayMs: isMobileLayout ? 150 : 100,
+      useIdleCallback: false,
     });
   }, [isLoading, isMobileLayout]);
 
