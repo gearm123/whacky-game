@@ -1512,10 +1512,9 @@ export default function App() {
               ) : null}
             </div>
 
-            {uiState?.resultMessage || error ? (
+            {error ? (
               <div className="minimal-status">
-                {uiState?.resultMessage ? <p>{uiState.resultMessage}</p> : null}
-                {error ? <p className="error-text">{error}</p> : null}
+                <p className="error-text">{error}</p>
               </div>
             ) : null}
 
@@ -1585,18 +1584,20 @@ export default function App() {
               </div>
             ) : null}
 
-            <div className={`page-nav page-nav-bottom ${isMobileLayout ? "page-nav-mobile" : ""}`} aria-label="More pages">
-              {secondaryPageButtons.map((page) => (
-                <button
-                  key={page.id}
-                  type="button"
-                  className={`mode-button compact page-nav-button ${currentPage === page.id ? "page-nav-button-active" : ""}`}
-                  onClick={() => navigateToPage(page.id)}
-                >
-                  {page.navLabel}
-                </button>
-              ))}
-            </div>
+            {!isMobileLayout ? (
+              <div className="page-nav page-nav-bottom" aria-label="More pages">
+                {secondaryPageButtons.map((page) => (
+                  <button
+                    key={page.id}
+                    type="button"
+                    className={`mode-button compact page-nav-button ${currentPage === page.id ? "page-nav-button-active" : ""}`}
+                    onClick={() => navigateToPage(page.id)}
+                  >
+                    {page.navLabel}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </section>
         ) : (
           <section className="panel content-page-panel">
@@ -1734,26 +1735,40 @@ export default function App() {
       </main>
 
       {isMobileLayout && isHomePage ? (
-        <div className="mobile-action-bar">
-          <button
-            type="button"
-            className="spin-button"
-            onClick={handleSpin}
-            disabled={isSpinActionDisabled}
-          >
-            {actionLabel}
-          </button>
-          <button
-            type="button"
-            className="mode-button compact secondary-button"
-            onClick={() => {
-              trackEvent("help_opened", { source: "mobile_action_bar" });
-              setIsInfoOpen(true);
-            }}
-          >
-            Help
-          </button>
-        </div>
+        <>
+          <div className="mobile-action-bar">
+            <button
+              type="button"
+              className="spin-button"
+              onClick={handleSpin}
+              disabled={isSpinActionDisabled}
+            >
+              {actionLabel}
+            </button>
+            <button
+              type="button"
+              className="mode-button compact secondary-button"
+              onClick={() => {
+                trackEvent("help_opened", { source: "mobile_action_bar" });
+                setIsInfoOpen(true);
+              }}
+            >
+              Help
+            </button>
+          </div>
+          <div className="page-nav page-nav-bottom page-nav-mobile" aria-label="More pages">
+            {secondaryPageButtons.map((page) => (
+              <button
+                key={page.id}
+                type="button"
+                className={`mode-button compact page-nav-button ${currentPage === page.id ? "page-nav-button-active" : ""}`}
+                onClick={() => navigateToPage(page.id)}
+              >
+                {page.navLabel}
+              </button>
+            ))}
+          </div>
+        </>
       ) : null}
 
       {isInfoOpen ? (
